@@ -16,17 +16,27 @@ DOCS      = os.path.join(ROOT, "docs")
 STATE     = os.path.join(ROOT, "state_seen.json")
 ITEMS     = os.path.join(ROOT, "items.json")   # 你添加的真实通知（add_news.py 写入）
 RECENT_DAYS = 60
+NEW_DAYS    = 7    # 发布≤7天标「新」，优先转发
 NOW_BJ = datetime.utcnow() + timedelta(hours=8)   # GitHub 跑在 UTC，换成北京时间
+# 网站图标：内联 SVG（蓝底白「策」），无需额外文件
+FAVICON=("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'"
+         "%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%232b6cff'/%3E"
+         "%3Ctext%20x='32'%20y='46'%20font-size='40'%20text-anchor='middle'%20fill='white'"
+         "%20font-family='Microsoft%20YaHei,sans-serif'%3E%E7%AD%96%3C/text%3E%3C/svg%3E")
 
 # === 客户群配置（加群=加一条，自动多一个子页面）===
+# 当前唯一客户群＝买了《南京市级重大科技专项申报实操手册》的企业。
+# 关键词据手册校准：本专项三专题(重大科技/前沿技术/行业技术)+揭榜挂帅+卡脖子攻关+指南征集+立项公示；
+# boost 让「市级重大科技专项申报通知」这条核心通知一发布就排到最前。
 CUSTOMERS = [
-    {"key":"zhongda", "name":"重大科技专项客户群",
-     "include":["重大科技专项","重大专项","前沿技术","科技专项","攻关","揭榜","申报指南"],
-     "boost":["申报","通知","截止","指南","兑现","资助"]},
+    {"key":"zhongda", "name":"南京市级重大科技专项申报",
+     "include":["重大科技专项","重大专项","科技重大专项","前沿技术","行业技术","卡脖子",
+                "关键核心技术","攻关","揭榜","揭榜挂帅","科技专项","申报指南","指南建议"],
+     "boost":["市级重大科技专项","南京市重大","南京市级重大","申报","指南","征集","立项","公示","资助","截止"]},
     # {"key":"gainian","name":"概念验证中心客户群","include":["概念验证"],"boost":["申报","认定","截止"]},
     # {"key":"chengguo","name":"产学研成果转化客户群","include":["技术转移","成果转化","技术合同"],"boost":["奖补","申报"]},
 ]
-EXCLUDE = ["中标公告","成交公告","采购","询价","招标","结果公告","拟聘","录用","会议纪要","党组","廉政","人事任免"]
+EXCLUDE = ["中标公告","成交公告","采购","询价","招标","结果公告","拟聘","录用","会议纪要","党组","廉政","人事任免","表彰"]
 
 SOURCES = [
     {"name":"南京市科技局·通知公告",
@@ -122,7 +132,7 @@ h1{font-size:20px;margin:0 0 4px}.sub{color:#888;font-size:13px;margin-bottom:18
 .card{background:#fff;border:1px solid #eee;border-radius:10px;padding:14px 16px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.04)}.card.done{opacity:.45}
 .card.expired{opacity:.5;background:#fbfbfb}
 .t{font-size:16px;font-weight:600;line-height:1.5}.meta{color:#888;font-size:12px;margin:6px 0}
-.tag{display:inline-block;background:#eef4ff;color:#2b6cff;border-radius:4px;padding:1px 7px;font-size:12px;margin-right:6px}.urg{background:#fff0f0;color:#e03131}.exp{background:#f1f3f5;color:#868e96}
+.tag{display:inline-block;background:#eef4ff;color:#2b6cff;border-radius:4px;padding:1px 7px;font-size:12px;margin-right:6px}.urg{background:#fff0f0;color:#e03131}.exp{background:#f1f3f5;color:#868e96}.new{background:#e6f7ed;color:#0f9d58;font-weight:600}
 .btns{margin-top:10px}button,a.lk{font-size:13px;border:1px solid #ddd;background:#fff;border-radius:6px;padding:6px 12px;margin-right:8px;cursor:pointer;text-decoration:none;color:#333}
 button.cp{background:#2b6cff;color:#fff;border-color:#2b6cff}.empty{color:#888;text-align:center;padding:40px}
 .grp{display:block;background:#fff;border:1px solid #eee;border-radius:10px;padding:16px;margin:12px 0;text-decoration:none;color:#222;font-size:16px;font-weight:600}"""
@@ -131,7 +141,10 @@ def page_html(cust, rows, gen):
     cards=[]
     for r in rows:
         st=r.get("_dl_state","unknown"); dl=r.get("_dl_str",""); days=r.get("_dl_days")
-        tags=f'<span class="tag">{r["source"]}</span>'
+        is_new=False
+        try: is_new = bool(r["date"]) and st!="expired" and (NOW_BJ.date()-datetime.strptime(r["date"],"%Y-%m-%d").date()).days<=NEW_DAYS
+        except Exception: is_new=False
+        tags=('<span class="tag new">新</span>' if is_new else '')+f'<span class="tag">{r["source"]}</span>'
         if st=="expired":
             tags+='<span class="tag exp">已截止</span>'
         elif st=="open" and days is not None and days<=14:
@@ -150,10 +163,10 @@ def page_html(cust, rows, gen):
 <button onclick="tg('c{r["id"]}')">标记已转发</button></div></div>''')
     body="\n".join(cards) if cards else '<div class="empty">今日无符合条件的新消息</div>'
     return f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{cust["name"]}·政策简报</title><style>{CSS}</style></head><body>
+<title>{cust["name"]}·政策简报</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
 <a class="back" href="./index.html">← 返回全部客户群</a>
 <h1>{cust["name"]}·今日政策简报</h1>
-<div class="sub">更新：{gen}（北京时间）｜仅显示「近{RECENT_DAYS}天·未推送过·高相关」官方消息｜复制后请人工核对再转发</div>
+<div class="sub">更新：{gen}（北京时间）｜绿色「新」＝近{NEW_DAYS}天新发布、优先转发；灰色「已截止」仅存档参考｜复制后请人工核对再转发</div>
 {body}
 <script>function cp(t,id){{navigator.clipboard.writeText(t).then(()=>{{tg(id,1);alert('已复制，可粘贴到群里');}});}}
 function tg(id,d){{var e=document.getElementById(id);if(d){{e.classList.add('done');}}else{{e.classList.toggle('done');}}localStorage.setItem(id+location.pathname,e.classList.contains('done')?'1':'');}}
@@ -162,7 +175,7 @@ window.onload=function(){{document.querySelectorAll('.card').forEach(e=>{{if(loc
 def index_html(items_count, gen):
     links="\n".join(f'<a class="grp" href="./{c["key"]}.html">{c["name"]} →</a>' for c in CUSTOMERS)
     return f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>政策简报</title><style>{CSS}</style></head><body>
+<title>政策简报</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
 <h1>政策简报 · 客户群总览</h1>
 <div class="sub">更新：{gen}（北京时间，每天约11:00自动刷新）｜点进对应客户群查看今日可转发消息</div>
 {links}</body></html>'''
