@@ -1,0 +1,31 @@
+name: daily-brief
+# 每天北京时间 11:00 自动跑（GitHub 用 UTC，03:00 UTC = 11:00 北京）
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}        # 也可在 Actions 页面手动点 Run 立即跑
+
+permissions:
+  contents: write              # 允许把生成的网页提交回仓库
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 安装依赖
+        run: |
+          pip install -r requirements.txt
+          python -m playwright install --with-deps chromium
+      - name: 生成简报
+        run: python daily_brief.py
+      - name: 提交网页
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "update brief $(date -u +%F)" || echo "no changes"
+          git push
