@@ -1,8 +1,8 @@
 name: daily-brief
-# 每天北京时间 11:00 自动跑（GitHub 用 UTC，03:00 UTC = 11:00 北京）
+# 每天北京时间 09:30 自动跑（GitHub 用 UTC，01:30 UTC = 09:30 北京）
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '30 1 * * *'
   workflow_dispatch: {}        # 也可在 Actions 页面手动点 Run 立即跑
 
 permissions:
