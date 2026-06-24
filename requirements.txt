@@ -1,1 +1,1 @@
-playwright
+# 本项目仅用 Python 标准库，无需第三方依赖。

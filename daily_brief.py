@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 ROOT      = os.path.dirname(os.path.abspath(__file__))
 DOCS      = os.path.join(ROOT, "docs")
 STATE     = os.path.join(ROOT, "state_seen.json")
+ITEMS     = os.path.join(ROOT, "items.json")   # 你添加的真实通知（add_news.py 写入）
 RECENT_DAYS = 60
 NOW_BJ = datetime.utcnow() + timedelta(hours=8)   # GitHub 跑在 UTC，换成北京时间
 
@@ -50,17 +51,24 @@ def norm_date(s):
     return f"{int(m.group(1))}-{int(m.group(2)):02d}-{int(m.group(3)):02d}" if m else ""
 
 def fetch_render(src):
+    """容错版：屏蔽图片/媒体资源，导航未完成也继续，长轮询等待 JS 注入列表。"""
     from playwright.sync_api import sync_playwright
-    items=[]
+    anchors=[]
     with sync_playwright() as p:
         b=p.chromium.launch(headless=True)
         ctx=b.new_context(ignore_https_errors=True,
                           user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36")
-        pg=ctx.new_page(); pg.goto(src["list_url"], timeout=45000, wait_until="domcontentloaded")
-        for _ in range(8):
+        pg=ctx.new_page()
+        pg.route("**/*", lambda r: r.abort() if r.request.resource_type in ("image","media","font") else r.continue_())
+        try:
+            pg.goto(src["list_url"], timeout=60000, wait_until="commit")   # 导航一提交就返回
+        except Exception as e:
+            print("   (goto未完成，继续等待注入:", str(e)[:40], ")")
+        for _ in range(20):   # 最多再等约30秒，等 JS 把列表注入
             pg.wait_for_timeout(1500)
-            if pg.eval_on_selector_all("a","els=>els.filter(e=>/t\\d{8}_\\d+\\.html/.test(e.href)).length"): break
-        anchors=pg.eval_on_selector_all("a","els=>els.map(e=>({href:e.href,txt:e.innerText,par:e.closest('li')?e.closest('li').innerText:''}))")
+            anchors=pg.eval_on_selector_all("a",
+                "els=>els.filter(e=>/t\\d{8}_\\d+\\.html/.test(e.href)).map(e=>({href:e.href,txt:e.innerText,par:e.closest('li')?e.closest('li').innerText:''}))")
+            if anchors: break
         b.close()
     pat=re.compile(src["art_pat"]); out=[]
     for a in anchors:
@@ -72,18 +80,17 @@ def fetch_render(src):
     return out
 
 def fetch_all():
-    items=[]
-    for src in SOURCES:
-        try:
-            if src.get("render"):
-                got=fetch_render(src)
-                if got: items+=got; print(f"[{src['name']}] 实时抓取 {len(got)} 条"); continue
-            print(f"[{src['name']}] 实时为空，回退种子")
-        except Exception as e:
-            print(f"[{src['name']}] 抓取失败({str(e)[:60]})，回退种子")
-        items += [{"title":t,"link":u,"date":d,"source":src["name"]} for (t,u,d) in SEED]
+    """读 items.json（你用 add_news.py 添加的真实通知）；空则用种子兜底。"""
+    data=[]
+    if os.path.exists(ITEMS):
+        try: data=json.load(open(ITEMS,encoding="utf-8"))
+        except: data=[]
+    if not data:
+        data=[{"title":t,"link":u,"date":d} for (t,u,d) in SEED]
+    for it in data: it.setdefault("source","南京市科技局")
     uniq={}
-    for it in items: uniq.setdefault(it["link"], it)
+    for it in data: uniq.setdefault(it["link"], it)
+    print(f"读到 {len(uniq)} 条已收录通知")
     return list(uniq.values())
 
 def recent(it):
@@ -137,23 +144,21 @@ def index_html(items_count, gen):
 
 def main():
     os.makedirs(DOCS, exist_ok=True)
-    seen=load_state(); items=fetch_all(); gen=NOW_BJ.strftime("%Y-%m-%d %H:%M")
-    new_links=set()
+    items=fetch_all(); gen=NOW_BJ.strftime("%Y-%m-%d %H:%M")
     for c in CUSTOMERS:
         scored=[]
         for it in items:
-            if it["link"] in seen or not recent(it): continue
-            sc=relevance(it,c)
+            if not recent(it): continue          # 时效：超过RECENT_DAYS天自动淡出
+            sc=relevance(it,c)                    # 相关：命中该客户群关键词
             if sc<0: continue
             scored.append({**it,"score":sc})
+        scored.sort(key=lambda x: (-x["score"], x.get("date","")), reverse=False)
         scored.sort(key=lambda x:-x["score"])
         for i,r in enumerate(scored): r["id"]=i
         open(os.path.join(DOCS,f'{c["key"]}.html'),"w",encoding="utf-8").write(page_html(c,scored,gen))
         print(f'  {c["name"]}: {len(scored)} 条')
-        for r in scored: new_links.add(r["link"])
     open(os.path.join(DOCS,"index.html"),"w",encoding="utf-8").write(index_html(len(items),gen))
-    seen|=new_links; save_state(seen)
-    print(f"完成。新增去重 {len(new_links)} 条。网页已写入 docs/")
+    print("网页已写入 docs/")
 
 if __name__=="__main__":
     main()
