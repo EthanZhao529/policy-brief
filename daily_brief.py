@@ -88,15 +88,30 @@ def any_relevant(title):
     if any(x in title for x in EXCLUDE): return False
     return any(k in title for c in CUSTOMERS for k in c["include"])
 
+CRAWL_STATUS={"ok":False,"mode":"cache","count":0,"added":0,"at":""}  # 本次抓取状态，印到网页+写 crawl_status.json
+
+def _write_status():
+    json.dump(CRAWL_STATUS, open(os.path.join(ROOT,"crawl_status.json"),"w",encoding="utf-8"), ensure_ascii=False, indent=1)
+
+def source_note():
+    """网页底部「数据源」一行：一眼看出今天是实时抓取还是用了缓存。"""
+    s=CRAWL_STATUS
+    if s.get("ok"):
+        return f'数据源：✅ 实时抓取成功（列表 {s.get("count",0)} 条）· {s.get("at","")}'
+    return f'数据源：⚠️ 本次自动抓取未成功，当前显示为上次缓存数据 · {s.get("at","")}'
+
 def merge_crawl():
     """抓列表→筛相关→并入 items.json（按链接去重，保留已有条目的 deadline 等人工信息）。
     抓不到（如海外服务器访问不了政府站）就跳过、沿用现有 items.json，绝不白屏。
     刻意不自动猜测申报截止日（截止日在正文、易猜错）——新抓条目先无 deadline，
     核心通知的截止日由人工核实后补，符合『发付费客户前人工核对』原则。"""
+    CRAWL_STATUS["at"]=NOW_BJ.strftime("%Y-%m-%d %H:%M")
     try:
-        fetched=crawl_list(); print(f"抓到「公示公告」列表 {len(fetched)} 条")
+        fetched=crawl_list(); CRAWL_STATUS.update(ok=True,mode="live",count=len(fetched))
+        print(f"抓到「公示公告」列表 {len(fetched)} 条")
     except Exception as e:
-        print("列表抓取失败，沿用现有 items.json：", str(e)[:80]); return
+        CRAWL_STATUS.update(ok=False,mode="cache",error=str(e)[:80])
+        print("列表抓取失败，沿用现有 items.json：", str(e)[:80]); _write_status(); return
     data=[]
     if os.path.exists(ITEMS):
         try: data=json.load(open(ITEMS,encoding="utf-8"))
@@ -107,6 +122,7 @@ def merge_crawl():
         data.append(it); have.add(it["link"]); added+=1
         print("  + 新增:", it["date"], it["title"][:30])
     if added: json.dump(data, open(ITEMS,"w",encoding="utf-8"), ensure_ascii=False, indent=1)
+    CRAWL_STATUS["added"]=added; _write_status()
     print(f"本次新增 {added} 条，items.json 现 {len(data)} 条")
 
 def fetch_all():
@@ -171,7 +187,7 @@ def page_html(cust, rows, gen):
 <title>{cust["name"]}·政策简报</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
 <a class="back" href="./index.html">← 返回全部客户群</a>
 <h1>{cust["name"]}·今日政策简报</h1>
-<div class="sub">更新：{gen}（北京时间）｜绿色「新」＝近{NEW_DAYS}天新发布、优先转发；灰色「已截止」仅存档参考｜复制后请人工核对再转发</div>
+<div class="sub">更新：{gen}（北京时间）｜绿色「新」＝近{NEW_DAYS}天新发布、优先转发；灰色「已截止」仅存档参考｜复制后请人工核对再转发<br><span style="color:#aaa">{source_note()}</span></div>
 {body}
 <script>function cp(t,id){{navigator.clipboard.writeText(t).then(()=>{{tg(id,1);alert('已复制，可粘贴到群里');}});}}
 function tg(id,d){{var e=document.getElementById(id);if(d){{e.classList.add('done');}}else{{e.classList.toggle('done');}}localStorage.setItem(id+location.pathname,e.classList.contains('done')?'1':'');}}
@@ -182,7 +198,7 @@ def index_html(items_count, gen):
     return f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>政策简报</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
 <h1>政策简报 · 客户群总览</h1>
-<div class="sub">更新：{gen}（北京时间，每天约11:00自动刷新）｜点进对应客户群查看今日可转发消息</div>
+<div class="sub">更新：{gen}（北京时间，每天约09:30自动刷新）｜点进对应客户群查看今日可转发消息<br><span style="color:#aaa">{source_note()}</span></div>
 {links}</body></html>'''
 
 def main():
