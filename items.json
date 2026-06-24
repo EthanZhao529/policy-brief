@@ -1,9 +1,54 @@
 [
- {"title":"关于组织申报2025年南京市重大科技专项项目的通知","link":"https://kjj.nanjing.gov.cn/njskxjswyh/202509/t20250930_5661665.html","date":"2025-09-30","source":"南京市科技局"},
- {"title":"关于组织申报2025年南京市重大科技专项（前沿技术）项目的通知","link":"https://kjj.nanjing.gov.cn/njskxjswyh/202508/t20250815_5629147.html","date":"2025-08-15","source":"南京市科技局"},
- {"title":"南京市科学技术局关于印发《南京市级重大科技专项管理办法》的通知","link":"https://kjj.nanjing.gov.cn/njskxjswyh/202508/t20250821_5633071.html","date":"2025-08-21","source":"南京市科技局"},
- {"title":"关于组织申报2026年度江苏省科技重大专项项目的通知","link":"https://kjj.nanjing.gov.cn/njskxjswyh/202605/t20260512_5838515.html","date":"2026-05-12","deadline":"2026-06-12","source":"南京市科技局"},
- {"title":"关于转发省科技厅《关于组织开展2026年度前沿技术应用场景建设示范的通知》的通知","link":"https://kjj.nanjing.gov.cn/njskxjswyh/202606/t20260605_5852690.html","date":"2026-06-05","deadline":"2026-07-14","source":"南京市科技局"},
- {"title":"市科技局关于做好2026年度省前沿技术研发计划（现代农业）“揭榜挂帅”项目工作的通知","link":"https://kjj.nanjing.gov.cn/njskxjswyh/202606/t20260615_5859641.html","date":"2026-06-15","deadline":"2026-06-22","source":"南京市科技局"},
- {"title":"市科技局关于组织申报2026年度省前沿技术研发计划（卫生健康）项目的通知","link":"https://kjj.nanjing.gov.cn/njskxjswyh/202605/t20260520_5843233.html","date":"2026-05-20","deadline":"2026-06-12","source":"南京市科技局"}
+ {
+  "title": "关于组织申报2025年南京市重大科技专项项目的通知",
+  "link": "https://kjj.nanjing.gov.cn/njskxjswyh/202509/t20250930_5661665.html",
+  "date": "2025-09-30",
+  "source": "南京市科技局"
+ },
+ {
+  "title": "关于组织申报2025年南京市重大科技专项（前沿技术）项目的通知",
+  "link": "https://kjj.nanjing.gov.cn/njskxjswyh/202508/t20250815_5629147.html",
+  "date": "2025-08-15",
+  "source": "南京市科技局"
+ },
+ {
+  "title": "南京市科学技术局关于印发《南京市级重大科技专项管理办法》的通知",
+  "link": "https://kjj.nanjing.gov.cn/njskxjswyh/202508/t20250821_5633071.html",
+  "date": "2025-08-21",
+  "source": "南京市科技局"
+ },
+ {
+  "title": "关于组织申报2026年度江苏省科技重大专项项目的通知",
+  "link": "https://kjj.nanjing.gov.cn/njskxjswyh/202605/t20260512_5838515.html",
+  "date": "2026-05-12",
+  "deadline": "2026-06-12",
+  "source": "南京市科技局"
+ },
+ {
+  "title": "关于转发省科技厅《关于组织开展2026年度前沿技术应用场景建设示范的通知》的通知",
+  "link": "https://kjj.nanjing.gov.cn/njskxjswyh/202606/t20260605_5852690.html",
+  "date": "2026-06-05",
+  "deadline": "2026-07-14",
+  "source": "南京市科技局"
+ },
+ {
+  "title": "市科技局关于做好2026年度省前沿技术研发计划（现代农业）“揭榜挂帅”项目工作的通知",
+  "link": "https://kjj.nanjing.gov.cn/njskxjswyh/202606/t20260615_5859641.html",
+  "date": "2026-06-15",
+  "deadline": "2026-06-22",
+  "source": "南京市科技局"
+ },
+ {
+  "title": "市科技局关于组织申报2026年度省前沿技术研发计划（卫生健康）项目的通知",
+  "link": "https://kjj.nanjing.gov.cn/njskxjswyh/202605/t20260520_5843233.html",
+  "date": "2026-05-20",
+  "deadline": "2026-06-12",
+  "source": "南京市科技局"
+ },
+ {
+  "title": "市科技局关于组织申报2026年度省前沿技术研发计划（社会发展）项目的通知",
+  "link": "https://kjj.nanjing.gov.cn/njskxjswyh/202604/t20260420_5826718.html",
+  "date": "2026-04-20",
+  "source": "南京市科技局"
+ }
 ]

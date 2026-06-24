@@ -5,8 +5,9 @@ daily_brief.py — 每日政策简报（云端版，跑在 GitHub Actions 上）
   抓南京科技政策 → 去重 → 相关/时效过滤 → 生成静态网页到 docs/ → 由 GitHub Pages 托管。
 你只需打开网址查看、复制转发。多客户群 = CUSTOMERS 配置里加一条 = 多一个子页面。
 
-四道闸：真实(官方原文+链接，不改写) / 时效(近N天) / 去重(state_seen.json) / 相关(关键词)。
-抓取：JS 渲染的政府站用 Playwright 渲染后抓；失败回退种子数据，网站永不白屏。
+四道闸：真实(官方原文+链接，不改写) / 时效(近N天) / 去重(按链接) / 相关(关键词)。
+抓取：直接 urllib 抓「公示公告」静态列表页(kjj 214/228)→筛相关→并入 items.json；
+      抓不到(如海外服务器访问不了政府站)则沿用现有数据，网站永不白屏。
 """
 import os, re, json, html as _html
 from datetime import datetime, timedelta
@@ -38,11 +39,10 @@ CUSTOMERS = [
 ]
 EXCLUDE = ["中标公告","成交公告","采购","询价","招标","结果公告","拟聘","录用","会议纪要","党组","廉政","人事任免","表彰"]
 
-SOURCES = [
-    {"name":"南京市科技局·通知公告",
-     "list_url":"https://kjj.nanjing.gov.cn/njskxjswyh/index.html",
-     "art_pat": r'/njskxjswyh/\d{6}/t\d{8}_\d+\.html', "render": True},
-]
+# 抓取源：南京市科技局「公示公告」栏目——静态 HTML，标题/链接/发布日都在页内，urllib 直接可抓。
+# 切记：首页那个通知小部件、以及 njskxjswyh/index.html(信息公开指南页) 是 JS/无列表，别用；必须用这个 214/228 栏目页。
+LIST_URL = "https://kjj.nanjing.gov.cn/njskxjswyh/214/228/index_17377.html"
+UA = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36"}
 
 SEED = [
  ("关于组织申报2025年南京市重大科技专项项目的通知","https://kjj.nanjing.gov.cn/njskxjswyh/202509/t20250930_5661665.html","2025-09-30"),
@@ -75,34 +75,39 @@ def fmt_md(dl):
     m=re.match(r"\d{4}-(\d{2})-(\d{2})", dl or "")
     return f"{m.group(1)}/{m.group(2)}" if m else dl
 
-def fetch_render(src):
-    """容错版：屏蔽图片/媒体资源，导航未完成也继续，长轮询等待 JS 注入列表。"""
-    from playwright.sync_api import sync_playwright
-    anchors=[]
-    with sync_playwright() as p:
-        b=p.chromium.launch(headless=True)
-        ctx=b.new_context(ignore_https_errors=True,
-                          user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0 Safari/537.36")
-        pg=ctx.new_page()
-        pg.route("**/*", lambda r: r.abort() if r.request.resource_type in ("image","media","font") else r.continue_())
-        try:
-            pg.goto(src["list_url"], timeout=60000, wait_until="commit")   # 导航一提交就返回
-        except Exception as e:
-            print("   (goto未完成，继续等待注入:", str(e)[:40], ")")
-        for _ in range(20):   # 最多再等约30秒，等 JS 把列表注入
-            pg.wait_for_timeout(1500)
-            anchors=pg.eval_on_selector_all("a",
-                "els=>els.filter(e=>/t\\d{8}_\\d+\\.html/.test(e.href)).map(e=>({href:e.href,txt:e.innerText,par:e.closest('li')?e.closest('li').innerText:''}))")
-            if anchors: break
-        b.close()
-    pat=re.compile(src["art_pat"]); out=[]
-    for a in anchors:
-        href=a.get("href","")
-        if not pat.search(href): continue
-        title=(a.get("txt") or "").strip()
-        if len(title)<6: continue
-        out.append({"title":title,"link":href,"date":norm_date(a.get("par",""))or norm_date(title),"source":src["name"]})
-    return out
+def crawl_list():
+    """抓「公示公告」静态列表页，返回 [{title,link,date,source}]；失败抛异常，由 merge_crawl 兜底。"""
+    import ssl, urllib.request
+    ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
+    html=urllib.request.urlopen(urllib.request.Request(LIST_URL,headers=UA),timeout=25,context=ctx).read().decode("utf-8","ignore")
+    rows=re.findall(r'<a href="(https://[^"]+/t\d{8}_\d+\.html)"[^>]*title="([^"]+)"[^>]*>.*?</a></span>\s*<span class="d2"[^>]*>(\d{4}-\d{2}-\d{2})</span>', html, re.S)
+    return [{"title":re.sub(r"\s+","",t),"link":l,"date":d,"source":"南京市科技局"} for l,t,d in rows]
+
+def any_relevant(title):
+    """命中任一客户群关键词、且不在 EXCLUDE → 值得收录（最终显示给哪个群由 relevance 决定）。"""
+    if any(x in title for x in EXCLUDE): return False
+    return any(k in title for c in CUSTOMERS for k in c["include"])
+
+def merge_crawl():
+    """抓列表→筛相关→并入 items.json（按链接去重，保留已有条目的 deadline 等人工信息）。
+    抓不到（如海外服务器访问不了政府站）就跳过、沿用现有 items.json，绝不白屏。
+    刻意不自动猜测申报截止日（截止日在正文、易猜错）——新抓条目先无 deadline，
+    核心通知的截止日由人工核实后补，符合『发付费客户前人工核对』原则。"""
+    try:
+        fetched=crawl_list(); print(f"抓到「公示公告」列表 {len(fetched)} 条")
+    except Exception as e:
+        print("列表抓取失败，沿用现有 items.json：", str(e)[:80]); return
+    data=[]
+    if os.path.exists(ITEMS):
+        try: data=json.load(open(ITEMS,encoding="utf-8"))
+        except: data=[]
+    have={it["link"] for it in data}; added=0
+    for it in fetched:
+        if it["link"] in have or not any_relevant(it["title"]): continue
+        data.append(it); have.add(it["link"]); added+=1
+        print("  + 新增:", it["date"], it["title"][:30])
+    if added: json.dump(data, open(ITEMS,"w",encoding="utf-8"), ensure_ascii=False, indent=1)
+    print(f"本次新增 {added} 条，items.json 现 {len(data)} 条")
 
 def fetch_all():
     """读 items.json（你用 add_news.py 添加的真实通知）；空则用种子兜底。"""
@@ -182,6 +187,7 @@ def index_html(items_count, gen):
 
 def main():
     os.makedirs(DOCS, exist_ok=True)
+    merge_crawl()                              # 先抓「公示公告」并入 items.json（失败自动跳过、不影响出网页）
     items=fetch_all(); gen=NOW_BJ.strftime("%Y-%m-%d %H:%M")
     for c in CUSTOMERS:
         scored=[]
