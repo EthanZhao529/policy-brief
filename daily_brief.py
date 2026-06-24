@@ -50,6 +50,21 @@ def norm_date(s):
     m=re.search(r"(\d{4})[-/年](\d{1,2})[-/月](\d{1,2})", s or "")
     return f"{int(m.group(1))}-{int(m.group(2)):02d}-{int(m.group(3)):02d}" if m else ""
 
+def deadline_info(it):
+    """根据 items.json 里可选的 deadline 字段判断申报状态。
+    返回 (state, dl_str, days_left)：state ∈ {'open','expired','unknown'}。
+    无 deadline 或格式不对 = unknown（照常显示，不做过期处理）。"""
+    dl=(it.get("deadline") or "").strip()
+    if not dl: return ("unknown","",None)
+    try: d=datetime.strptime(dl,"%Y-%m-%d").date()
+    except Exception: return ("unknown","",None)
+    days=(d-NOW_BJ.date()).days
+    return ("expired" if days<0 else "open", dl, days)
+
+def fmt_md(dl):
+    m=re.match(r"\d{4}-(\d{2})-(\d{2})", dl or "")
+    return f"{m.group(1)}/{m.group(2)}" if m else dl
+
 def fetch_render(src):
     """容错版：屏蔽图片/媒体资源，导航未完成也继续，长轮询等待 JS 注入列表。"""
     from playwright.sync_api import sync_playwright
@@ -105,8 +120,9 @@ def relevance(it,c):
 CSS="""body{font-family:'Microsoft YaHei',Arial,sans-serif;max-width:860px;margin:24px auto;padding:0 16px;color:#222;background:#fafafa}
 h1{font-size:20px;margin:0 0 4px}.sub{color:#888;font-size:13px;margin-bottom:18px}a.back{font-size:13px;color:#2b6cff;text-decoration:none}
 .card{background:#fff;border:1px solid #eee;border-radius:10px;padding:14px 16px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.04)}.card.done{opacity:.45}
+.card.expired{opacity:.5;background:#fbfbfb}
 .t{font-size:16px;font-weight:600;line-height:1.5}.meta{color:#888;font-size:12px;margin:6px 0}
-.tag{display:inline-block;background:#eef4ff;color:#2b6cff;border-radius:4px;padding:1px 7px;font-size:12px;margin-right:6px}.urg{background:#fff0f0;color:#e03131}
+.tag{display:inline-block;background:#eef4ff;color:#2b6cff;border-radius:4px;padding:1px 7px;font-size:12px;margin-right:6px}.urg{background:#fff0f0;color:#e03131}.exp{background:#f1f3f5;color:#868e96}
 .btns{margin-top:10px}button,a.lk{font-size:13px;border:1px solid #ddd;background:#fff;border-radius:6px;padding:6px 12px;margin-right:8px;cursor:pointer;text-decoration:none;color:#333}
 button.cp{background:#2b6cff;color:#fff;border-color:#2b6cff}.empty{color:#888;text-align:center;padding:40px}
 .grp{display:block;background:#fff;border:1px solid #eee;border-radius:10px;padding:16px;margin:12px 0;text-decoration:none;color:#222;font-size:16px;font-weight:600}"""
@@ -114,14 +130,23 @@ button.cp{background:#2b6cff;color:#fff;border-color:#2b6cff}.empty{color:#888;t
 def page_html(cust, rows, gen):
     cards=[]
     for r in rows:
-        urg=("申报" in r["title"] or "截止" in r["title"])
-        tags=f'<span class="tag">{r["source"]}</span>'+('<span class="tag urg">申报/截止 ⚠</span>' if urg else "")
-        fwd=f'【政策提醒】{r["title"]}\n发布：{r["date"] or "见原文"}\n原文：{r["link"]}'
+        st=r.get("_dl_state","unknown"); dl=r.get("_dl_str",""); days=r.get("_dl_days")
+        tags=f'<span class="tag">{r["source"]}</span>'
+        if st=="expired":
+            tags+='<span class="tag exp">已截止</span>'
+        elif st=="open" and days is not None and days<=14:
+            tags+=f'<span class="tag urg">仅剩{days}天 ⚠</span>'
+        elif st=="unknown" and ("申报" in r["title"] or "截止" in r["title"]):
+            tags+='<span class="tag">申报中</span>'
+        cls="card expired" if st=="expired" else "card"
+        dlline=f'　申报截止：{dl}' if dl else ''
+        fwd=f'【政策提醒】{r["title"]}\n发布：{r["date"] or "见原文"}'+(f'\n申报截止：{dl}' if dl else '')+f'\n原文：{r["link"]}'
         fj=_html.escape(fwd).replace("\n","\\n").replace("'","\\'")
-        cards.append(f'''<div class="card" id="c{r["id"]}"><div class="t">{_html.escape(r["title"])}</div>
-<div class="meta">发布：{r["date"] or "见原文"}　{tags}</div><div class="btns">
-<button class="cp" onclick="cp('{fj}','c{r["id"]}')">复制转发</button>
-<a class="lk" href="{r["link"]}" target="_blank">查看原文</a>
+        # 已截止的不给「复制转发」按钮，避免误转发到客户群
+        cp_btn='' if st=="expired" else f'<button class="cp" onclick="cp(\'{fj}\',\'c{r["id"]}\')">复制转发</button>\n'
+        cards.append(f'''<div class="{cls}" id="c{r["id"]}"><div class="t">{_html.escape(r["title"])}</div>
+<div class="meta">发布：{r["date"] or "见原文"}{dlline}　{tags}</div><div class="btns">
+{cp_btn}<a class="lk" href="{r["link"]}" target="_blank">查看原文</a>
 <button onclick="tg('c{r["id"]}')">标记已转发</button></div></div>''')
     body="\n".join(cards) if cards else '<div class="empty">今日无符合条件的新消息</div>'
     return f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -148,15 +173,18 @@ def main():
     for c in CUSTOMERS:
         scored=[]
         for it in items:
-            if not recent(it): continue          # 时效：超过RECENT_DAYS天自动淡出
+            if not recent(it): continue          # 时效：发布超过RECENT_DAYS天自动淡出
             sc=relevance(it,c)                    # 相关：命中该客户群关键词
             if sc<0: continue
-            scored.append({**it,"score":sc})
-        scored.sort(key=lambda x: (-x["score"], x.get("date","")), reverse=False)
-        scored.sort(key=lambda x:-x["score"])
+            st,dl,days=deadline_info(it)          # 截止：判断是否已过申报截止日
+            scored.append({**it,"score":sc,"_dl_state":st,"_dl_str":dl,"_dl_days":days})
+        # 排序：可申报的在前、已截止沉底；同组内相关度高的在前，再按发布日期新→旧
+        scored.sort(key=lambda x: x.get("date",""), reverse=True)
+        scored.sort(key=lambda x: (1 if x["_dl_state"]=="expired" else 0, -x["score"]))
         for i,r in enumerate(scored): r["id"]=i
         open(os.path.join(DOCS,f'{c["key"]}.html'),"w",encoding="utf-8").write(page_html(c,scored,gen))
-        print(f'  {c["name"]}: {len(scored)} 条')
+        n_open=sum(1 for r in scored if r["_dl_state"]!="expired")
+        print(f'  {c["name"]}: {len(scored)} 条（其中可申报 {n_open} 条）')
     open(os.path.join(DOCS,"index.html"),"w",encoding="utf-8").write(index_html(len(items),gen))
     print("网页已写入 docs/")
 

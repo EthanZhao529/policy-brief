@@ -6,6 +6,7 @@ add_news.py — 把 kjj 通知网址加入简报网站（Plan B 助手式）。
 日期直接从网址 t20250930 里取，标题用 http 请求取（单篇文章页可正常访问）。
 """
 import sys, io, os, re, json, ssl, urllib.request, subprocess
+from datetime import datetime
 try: sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 except Exception: pass
 
@@ -18,6 +19,30 @@ SUFFIX = ["-南京市科学技术局","_南京市科学技术局","-南京市人
 def date_from_url(url):
     m=re.search(r'/t(\d{4})(\d{2})(\d{2})_', url)
     return f"{m.group(1)}-{m.group(2)}-{m.group(3)}" if m else ""
+
+def norm_deadline(s, pub):
+    """把用户输入的截止日规整成 YYYY-MM-DD；留空返回 ''。
+    支持 MMDD / MM-DD / MM/DD / YYYY-MM-DD 等；只填月日时，年份取发布年，
+    若早于发布日则自动+1年（跨年截止）。认不出就留空。"""
+    s=(s or "").strip()
+    if not s: return ""
+    nums=re.findall(r"\d+", s.replace("年","-").replace("月","-").replace("日",""))
+    if len(nums)>=3:
+        y,m,d=int(nums[0]),int(nums[1]),int(nums[2])
+    elif len(nums)==2:
+        m,d=int(nums[0]),int(nums[1])
+        y=int(pub[:4]) if re.match(r"\d{4}",pub or "") else datetime.now().year
+        if pub and f"{y}-{m:02d}-{d:02d}"<pub: y+=1
+    elif len(nums)==1 and len(nums[0])==4:        # MMDD 连写
+        m,d=int(nums[0][:2]),int(nums[0][2:])
+        y=int(pub[:4]) if re.match(r"\d{4}",pub or "") else datetime.now().year
+        if pub and f"{y}-{m:02d}-{d:02d}"<pub: y+=1
+    else:
+        print("   (截止日格式没认出来，先留空)"); return ""
+    try:
+        datetime(y,m,d); return f"{y}-{m:02d}-{d:02d}"
+    except Exception:
+        print("   (截止日不是有效日期，先留空)"); return ""
 
 def fetch_title(url):
     try:
@@ -54,8 +79,12 @@ for u in urls:
     if u in have: print("[跳过·已收录]", u[-40:]); continue
     d=date_from_url(u); t=fetch_title(u)
     if not t: print("[失败·抓不到标题]", u[-40:]); continue
-    data.append({"title":t,"link":u,"date":d,"source":"南京市科技局"}); have.add(u); added+=1
-    print("[已添加]", d, t[:34])
+    print("[已抓到]", d, t[:34])
+    dl=norm_deadline(input("   申报截止日期(填 MMDD 或 YYYY-MM-DD，没有就直接回车跳过): "), d)
+    rec={"title":t,"link":u,"date":d,"source":"南京市科技局"}
+    if dl: rec["deadline"]=dl
+    data.append(rec); have.add(u); added+=1
+    print("[已添加]", d, ("｜截止 "+dl) if dl else "｜无截止日", t[:28])
 json.dump(data, open(ITEMS,"w",encoding="utf-8"), ensure_ascii=False, indent=1)
 print(f"\n本次新增 {added} 条，目前共 {len(data)} 条。")
 
