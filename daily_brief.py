@@ -18,7 +18,7 @@ STATE     = os.path.join(ROOT, "state_seen.json")
 ITEMS     = os.path.join(ROOT, "items.json")   # 你添加的真实通知（add_news.py 写入）
 RECENT_DAYS = 60
 NEW_DAYS    = 7    # 发布≤7天标「新」，优先转发
-SITE_VERSION = "ui-2026.06.25f"   # 渲染版本：改卡片/转发/样式时改这串，强制重生成（纳入 content.sig）
+SITE_VERSION = "ui-2026.06.26a"   # 渲染版本：改卡片/转发/样式时改这串，强制重生成（纳入 content.sig）
 NOW_BJ = datetime.utcnow() + timedelta(hours=8)   # GitHub 跑在 UTC，换成北京时间
 # 网站图标：内联 SVG（蓝底白「策」），无需额外文件
 FAVICON=("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'"
@@ -34,7 +34,8 @@ CUSTOMERS = [
     {"key":"zhongda", "name":"南京市级重大科技专项申报",
      "include":["重大科技专项","重大专项","科技重大专项","前沿技术","行业技术","卡脖子",
                 "关键核心技术","攻关","揭榜","揭榜挂帅","科技专项","申报指南","指南建议"],
-     "boost":["市级重大科技专项","南京市重大","南京市级重大","申报","指南","征集","立项","公示","资助","截止"]},
+     "boost":["市级重大科技专项","南京市重大","南京市级重大","申报","指南","征集","立项","公示","资助","截止"],
+     "default_cat":"重大专项·申报"},   # 抓取来的重大专项通知归此默认分类；人工补的条目用自己的 category
     # 泰州印染机械（纺织行业垂类情报）：内容为人工精挑、按 group 绑定的常驻条目，含监管/规划/趋势/资金。
     {"key":"taizhou", "name":"泰州印染机械 · 纺织行业专属",
      "include":[],   # 纯人工精挑：只收 group==taizhou 的条目，不让南京源爬取内容按关键词串进来（避免错配外地申报入口）
@@ -257,6 +258,8 @@ def alert_block(gen):
 
 def page_html(cust, rows, gen):
     total=len(rows); n_exp=sum(1 for r in rows if r.get("_dl_state")=="expired"); n_open=total-n_exp
+    dc=cust.get("default_cat","")
+    for r in rows: r["_cat"]=r.get("category") or dc    # 有效分类：人工标的优先，否则用群默认分类
     cards=[]
     for r in rows:
         eg=bool(r.get("evergreen"))
@@ -268,7 +271,8 @@ def page_html(cust, rows, gen):
         if not eg:
             try: is_new = bool(r.get("date")) and st!="expired" and (NOW_BJ.date()-datetime.strptime(r["date"],"%Y-%m-%d").date()).days<=NEW_DAYS
             except Exception: is_new=False
-        lvl=r.get("level"); lvlcls={"高":"h","中":"m","低":"l"}.get(lvl,"m")
+        lvl=r.get("level") or (("高" if r.get("score",0)>=3 else "中") if r["_cat"] else "")  # 抓取条目按相关度自动定级
+        lvlcls={"高":"h","中":"m","低":"l"}.get(lvl,"m")
         lvltag=f'<span class="tag lvl {lvlcls}">{lvl}相关</span>' if lvl else ''
         tags=lvltag+('<span class="tag new">新</span>' if is_new else '')+f'<span class="tag">{r.get("source","")}</span>'
         if eg:
@@ -298,19 +302,19 @@ def page_html(cust, rows, gen):
         fj=_html.escape("\n".join(parts)).replace("\n","\\n").replace("'","\\'")
         # 已截止的不给「复制转发」按钮，避免误转发到客户群
         cp_btn='' if (not eg and st=="expired") else f'<button class="btn cp" onclick="cp(\'{fj}\',\'{r["id"]}\')">复制转发</button>'
-        cards.append(f'''<article class="{cls}" id="{r["id"]}" data-cat="{r.get("category","")}">
+        cards.append(f'''<article class="{cls}" id="{r["id"]}" data-cat="{r["_cat"]}">
 <div class="top"><div class="badges">{tags}</div><span class="date">{topdate}</span></div>
 <div class="title">{_html.escape(r["title"])}</div>{desc}{meta}
 <div class="btns">{cp_btn}<a class="btn" href="{r["link"]}" target="_blank">查看原文</a><button class="btn mk" id="m{r["id"]}" onclick="tg('{r["id"]}')">标记已转发</button></div></article>''')
     body="\n".join(cards) if cards else '<div class="empty">今日暂无符合条件的新消息</div>'
     cats=[]
     for r in rows:
-        cc=r.get("category")
+        cc=r["_cat"]
         if cc and cc not in cats: cats.append(cc)
     if cats:
         chips=[f'<button class="chip on" onclick="flt(this,\'all\')">全部 {len(rows)}</button>']
         for cc in cats:
-            chips.append(f'<button class="chip" onclick="flt(this,\'{cc}\')">{cc} {sum(1 for r in rows if r.get("category")==cc)}</button>')
+            chips.append(f'<button class="chip" onclick="flt(this,\'{cc}\')">{cc} {sum(1 for r in rows if r["_cat"]==cc)}</button>')
         filters=f'<div class="filters">{"".join(chips)}</div>'
     else:
         filters=''
@@ -365,7 +369,8 @@ def main():
             scored.append({**it,"score":sc,"_dl_state":st,"_dl_str":dl,"_dl_days":days})
         # 排序：可申报的在前、已截止沉底；同组内相关度高的在前，再按发布日期新→旧
         scored.sort(key=lambda x: x.get("date",""), reverse=True)
-        scored.sort(key=lambda x: (1 if x["_dl_state"]=="expired" else 0, -x["score"]))
+        # 排序：已截止沉底；同档内"实时抓取的时效通知"排在"长期有效的补充信息"之前；再按相关度
+        scored.sort(key=lambda x: (1 if x["_dl_state"]=="expired" else 0, 1 if x.get("evergreen") else 0, -x["score"]))
         # 稳定 id＝按通知链接哈希（而非位置），避免改版/排序变化后「已转发」标记串到别的卡
         for r in scored: r["id"]="n"+hashlib.md5(r["link"].encode("utf-8")).hexdigest()[:8]
         pages.append((c,scored))
