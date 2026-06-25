@@ -154,16 +154,62 @@ def relevance(it,c):
     if not any(k in it["title"] for k in c["include"]): return -1
     return 1 + sum(1 for b in c["boost"] if b in it["title"])
 
-CSS="""body{font-family:'Microsoft YaHei',Arial,sans-serif;max-width:860px;margin:24px auto;padding:0 16px;color:#222;background:#fafafa}
-h1{font-size:20px;margin:0 0 4px}.sub{color:#888;font-size:13px;margin-bottom:18px}a.back{font-size:13px;color:#2b6cff;text-decoration:none}
-.card{background:#fff;border:1px solid #eee;border-radius:10px;padding:14px 16px;margin:12px 0;box-shadow:0 1px 3px rgba(0,0,0,.04)}.card.done{opacity:.45}
-.card.expired{opacity:.5;background:#fbfbfb}
-.t{font-size:16px;font-weight:600;line-height:1.5}.meta{color:#888;font-size:12px;margin:6px 0}
-.tag{display:inline-block;background:#eef4ff;color:#2b6cff;border-radius:4px;padding:1px 7px;font-size:12px;margin-right:6px}.urg{background:#fff0f0;color:#e03131}.exp{background:#f1f3f5;color:#868e96}.new{background:#e6f7ed;color:#0f9d58;font-weight:600}
-.btns{margin-top:10px}button,a.lk{font-size:13px;border:1px solid #ddd;background:#fff;border-radius:6px;padding:6px 12px;margin-right:8px;cursor:pointer;text-decoration:none;color:#333}
-button.cp{background:#2b6cff;color:#fff;border-color:#2b6cff}.empty{color:#888;text-align:center;padding:40px}
-.grp{display:block;background:#fff;border:1px solid #eee;border-radius:10px;padding:16px;margin:12px 0;text-decoration:none;color:#222;font-size:16px;font-weight:600}
-.alert{display:none;background:#fff5f5;color:#c92a2a;border:1px solid #ffc9c9;border-left:5px solid #e03131;border-radius:8px;padding:12px 14px;margin:0 0 16px;font-size:14px;font-weight:600;line-height:1.6}"""
+CSS=""":root{--bg:#070b14;--txt:#e8edf5;--txt2:#9aa7bd;--txt3:#64708a;--glass:rgba(255,255,255,.045);--glass2:rgba(255,255,255,.075);--line:rgba(255,255,255,.09);--line2:rgba(255,255,255,.16);--accent:#38bdf8;--accent2:#6366f1;--accent3:#a855f7;--green:#34d399;--red:#fb7185}
+*{box-sizing:border-box;margin:0;padding:0}html{scroll-behavior:smooth}
+body{font-family:'Microsoft YaHei','Segoe UI',-apple-system,Arial,sans-serif;color:var(--txt);background:var(--bg);min-height:100vh;line-height:1.6;-webkit-font-smoothing:antialiased;position:relative;overflow-x:hidden}
+body::before,body::after{content:"";position:fixed;border-radius:50%;filter:blur(90px);opacity:.5;z-index:0;pointer-events:none}
+body::before{width:48vw;height:48vw;left:-13vw;top:-12vw;background:radial-gradient(circle,#1e3a8a,transparent 70%);animation:d1 22s ease-in-out infinite alternate}
+body::after{width:44vw;height:44vw;right:-13vw;bottom:-14vw;background:radial-gradient(circle,#6d28d9,transparent 70%);animation:d2 27s ease-in-out infinite alternate}
+@keyframes d1{to{transform:translate(8vw,6vh) scale(1.15)}}@keyframes d2{to{transform:translate(-7vw,-9vh) scale(1.12)}}
+.wrap{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:26px 20px 56px}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.logo{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:23px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2) 55%,var(--accent3));box-shadow:0 6px 22px rgba(99,102,241,.5),inset 0 1px 0 rgba(255,255,255,.4)}
+.bt{font-size:17px;font-weight:700;letter-spacing:.5px}.bs{font-size:11.5px;color:var(--txt3);letter-spacing:1px}.sp{flex:1}
+.back{font-size:13px;color:var(--txt);text-decoration:none;padding:7px 15px;border:1px solid var(--line);border-radius:999px;background:var(--glass);backdrop-filter:blur(12px);transition:.25s}
+.back:hover{border-color:var(--line2);background:var(--glass2);transform:translateY(-1px)}
+.hero{position:relative;overflow:hidden;border-radius:22px;padding:28px 30px;margin-bottom:16px;background:linear-gradient(135deg,rgba(56,189,248,.10),rgba(168,85,247,.07));border:1px solid var(--line);backdrop-filter:blur(24px) saturate(140%);box-shadow:0 20px 50px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12)}
+.hero h1{font-size:26px;font-weight:800;letter-spacing:.3px;margin-bottom:9px;background:linear-gradient(120deg,#fff,#c3cfe2);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:var(--txt2);font-size:13.5px;max-width:700px}
+.sheen{position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.07) 50%,transparent 65%);transform:translateX(-100%);animation:sheen 7s ease-in-out 2s infinite}
+@keyframes sheen{0%,55%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.stat{border-radius:16px;padding:16px 18px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(16px);transition:.3s}
+.stat:hover{transform:translateY(-3px);border-color:var(--line2);background:var(--glass2)}
+.stat .n{font-size:27px;font-weight:800;line-height:1}.stat .l{font-size:12px;color:var(--txt3);margin-top:6px}
+.s1 .n{color:var(--green)}.s2 .n{color:var(--txt2)}.s3 .n{color:var(--accent)}
+.card{position:relative;overflow:hidden;border-radius:18px;padding:18px 20px 16px;margin-bottom:13px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(18px) saturate(130%);box-shadow:0 10px 30px rgba(0,0,0,.3);transition:transform .3s cubic-bezier(.2,.8,.2,1),border-color .3s,box-shadow .3s}
+.card::before{content:"";position:absolute;top:0;left:0;width:3px;height:100%;background:linear-gradient(var(--accent),var(--accent3));opacity:.85}
+.card::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.06) 50%,transparent 58%);transform:translateX(-130%);transition:transform .8s;pointer-events:none}
+.card:hover{transform:translateY(-4px);border-color:var(--line2);box-shadow:0 18px 44px rgba(0,0,0,.5),0 0 0 1px rgba(56,189,248,.18)}
+.card:hover::after{transform:translateX(130%)}
+.card.expired{opacity:.62}.card.expired::before{background:var(--txt3)}.card.done{opacity:.4}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:9px}
+.badges{display:flex;flex-wrap:wrap;gap:6px}
+.date{font-size:12px;color:var(--txt3);white-space:nowrap;padding-top:2px}
+.title{font-size:16.5px;font-weight:700;line-height:1.5;color:var(--txt)}
+.meta{font-size:12.5px;color:var(--txt2);margin-top:8px}
+.tag{font-size:11.5px;padding:2px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--txt2)}
+.tag.new{background:rgba(52,211,153,.15);border-color:rgba(52,211,153,.42);color:#6ee7b7;font-weight:700}
+.tag.urg{background:rgba(251,113,133,.15);border-color:rgba(251,113,133,.42);color:#fda4af;font-weight:700}
+.tag.exp{background:rgba(255,255,255,.04);color:var(--txt3)}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}
+.btn{font-size:13px;padding:8px 16px;border-radius:10px;border:1px solid var(--line);cursor:pointer;background:var(--glass);color:var(--txt);text-decoration:none;transition:.25s;backdrop-filter:blur(8px)}
+.btn:hover{border-color:var(--line2);background:var(--glass2);transform:translateY(-1px)}
+.btn.cp{border:none;color:#fff;font-weight:600;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 6px 18px rgba(99,102,241,.42)}
+.btn.cp:hover{box-shadow:0 10px 26px rgba(99,102,241,.58);filter:brightness(1.08)}
+.empty{text-align:center;color:var(--txt3);padding:48px;border:1px dashed var(--line);border-radius:18px;background:var(--glass)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;border-radius:16px;padding:14px 18px;margin-top:18px;background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(14px);font-size:12.5px;color:var(--txt2)}
+.legend b{color:var(--txt);font-weight:600}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.foot{margin-top:24px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--txt3);text-align:center;line-height:1.9}
+.src{margin-top:8px}.src.ok{color:#6ee7b7}
+.grp{display:flex;align-items:center;gap:15px;border-radius:18px;padding:20px 22px;margin-bottom:13px;text-decoration:none;color:var(--txt);background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(18px);position:relative;overflow:hidden;transition:.3s}
+.grp::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.06) 50%,transparent 58%);transform:translateX(-130%);transition:transform .8s;pointer-events:none}
+.grp:hover{transform:translateY(-4px);border-color:var(--line2);box-shadow:0 18px 44px rgba(0,0,0,.45)}.grp:hover::after{transform:translateX(130%)}
+.gi{width:46px;height:46px;border-radius:13px;display:grid;place-items:center;font-size:22px;color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent3));box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+.gt{font-size:16.5px;font-weight:700}.gd{font-size:12.5px;color:var(--txt3);margin-top:3px}.ga{margin-left:auto;color:var(--accent);font-size:22px}
+.alert{display:none;background:linear-gradient(135deg,rgba(251,113,133,.18),rgba(244,63,94,.1));color:#fecdd3;border:1px solid rgba(251,113,133,.45);border-left:4px solid var(--red);border-radius:14px;padding:14px 16px;margin-bottom:16px;font-size:14px;font-weight:600;line-height:1.6;backdrop-filter:blur(14px)}
+@media(max-width:600px){.wrap{padding:18px 14px 40px}.hero{padding:22px}.hero h1{font-size:21px}.stat .n{font-size:22px}}"""
 
 def alert_block(gen):
     """页面顶部警示条：① 抓取失败(服务器已知)→直接红条，附上次成功时间；
@@ -180,6 +226,7 @@ def alert_block(gen):
             f'b.innerHTML="⚠️ 网站已约"+Math.floor(d)+"天未更新，每日自动抓取可能出问题了，请尽快处理（找 Claude 排查）。";}}}})();</script>')
 
 def page_html(cust, rows, gen):
+    total=len(rows); n_exp=sum(1 for r in rows if r.get("_dl_state")=="expired"); n_open=total-n_exp
     cards=[]
     for r in rows:
         st=r.get("_dl_state","unknown"); dl=r.get("_dl_str",""); days=r.get("_dl_days")
@@ -190,39 +237,51 @@ def page_html(cust, rows, gen):
         if st=="expired":
             tags+='<span class="tag exp">已截止</span>'
         elif st=="open" and days is not None and days<=14:
-            tags+=f'<span class="tag urg">仅剩{days}天 ⚠</span>'
+            tags+=f'<span class="tag urg">仅剩{days}天</span>'
         elif st=="unknown" and ("申报" in r["title"] or "截止" in r["title"]):
             tags+='<span class="tag">申报中</span>'
         cls="card expired" if st=="expired" else "card"
-        dlline=f'　申报截止：{dl}' if dl else ''
+        meta=f'<div class="meta">申报截止　{dl}</div>' if dl else ''
         fwd=f'【政策提醒】{r["title"]}\n发布：{r["date"] or "见原文"}'+(f'\n申报截止：{dl}' if dl else '')+f'\n原文：{r["link"]}'
         fj=_html.escape(fwd).replace("\n","\\n").replace("'","\\'")
         # 已截止的不给「复制转发」按钮，避免误转发到客户群
-        cp_btn='' if st=="expired" else f'<button class="cp" onclick="cp(\'{fj}\',\'c{r["id"]}\')">复制转发</button>\n'
-        cards.append(f'''<div class="{cls}" id="c{r["id"]}"><div class="t">{_html.escape(r["title"])}</div>
-<div class="meta">发布：{r["date"] or "见原文"}{dlline}　{tags}</div><div class="btns">
-{cp_btn}<a class="lk" href="{r["link"]}" target="_blank">查看原文</a>
-<button onclick="tg('c{r["id"]}')">标记已转发</button></div></div>''')
-    body="\n".join(cards) if cards else '<div class="empty">今日无符合条件的新消息</div>'
-    return f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+        cp_btn='' if st=="expired" else f'<button class="btn cp" onclick="cp(\'{fj}\',\'c{r["id"]}\')">复制转发</button>'
+        cards.append(f'''<article class="{cls}" id="c{r["id"]}">
+<div class="top"><div class="badges">{tags}</div><span class="date">发布 {r["date"] or "—"}</span></div>
+<div class="title">{_html.escape(r["title"])}</div>{meta}
+<div class="btns">{cp_btn}<a class="btn" href="{r["link"]}" target="_blank">查看原文</a><button class="btn" onclick="tg('c{r["id"]}')">标记已转发</button></div></article>''')
+    body="\n".join(cards) if cards else '<div class="empty">今日暂无符合条件的新消息</div>'
+    sok=' ok' if CRAWL_STATUS.get("ok") else ''
+    return f'''<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{cust["name"]}·政策简报</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
+<div class="wrap">
 {alert_block(gen)}
-<a class="back" href="./index.html">← 返回全部客户群</a>
-<h1>{cust["name"]}·今日政策简报</h1>
-<div class="sub">更新：{gen}（北京时间）｜绿色「新」＝近{NEW_DAYS}天新发布、优先转发；灰色「已截止」仅存档参考｜复制后请人工核对再转发<br><span style="color:#aaa">{source_note()}</span></div>
+<div class="brand"><div class="logo">策</div><div><div class="bt">政策简报</div><div class="bs">POLICY BRIEF · 每日精选</div></div><div class="sp"></div><a class="back" href="./index.html">← 全部客户群</a></div>
+<div class="hero"><div class="sheen"></div><h1>{cust["name"]}</h1>
+<p>每日自动汇集南京市科技局官方政策，按相关性与申报截止智能排序。<b style="color:#6ee7b7">绿色「新」</b>为近{NEW_DAYS}天发布、优先转发；灰色「已截止」仅存档参考。复制前请人工核对再转发。</p></div>
+<div class="stats"><div class="stat s1"><div class="n">{n_open}</div><div class="l">可申报</div></div>
+<div class="stat s2"><div class="n">{n_exp}</div><div class="l">已截止 · 存档</div></div>
+<div class="stat s3"><div class="n">{total}</div><div class="l">在库通知</div></div></div>
 {body}
+<div class="legend"><span><span class="dot" style="background:var(--green)"></span><b>新</b> 近{NEW_DAYS}天发布</span><span><span class="dot" style="background:var(--red)"></span><b>仅剩X天</b> 临近截止</span><span><span class="dot" style="background:var(--txt3)"></span><b>已截止</b> 仅存档不可申报</span></div>
+<div class="foot">更新：{gen}（北京时间）· 每天 09:30 自动刷新<div class="src{sok}">{source_note()}</div>本服务汇集官方公开信息，仅供参考，请以政府官网原文为准</div>
+</div>
 <script>function cp(t,id){{navigator.clipboard.writeText(t).then(()=>{{tg(id,1);alert('已复制，可粘贴到群里');}});}}
 function tg(id,d){{var e=document.getElementById(id);if(d){{e.classList.add('done');}}else{{e.classList.toggle('done');}}localStorage.setItem(id+location.pathname,e.classList.contains('done')?'1':'');}}
 window.onload=function(){{document.querySelectorAll('.card').forEach(e=>{{if(localStorage.getItem(e.id+location.pathname)=='1')e.classList.add('done');}});}};</script></body></html>'''
 
 def index_html(items_count, gen):
-    links="\n".join(f'<a class="grp" href="./{c["key"]}.html">{c["name"]} →</a>' for c in CUSTOMERS)
-    return f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>政策简报</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
+    tiles="\n".join(f'<a class="grp" href="./{c["key"]}.html"><div class="gi">策</div><div><div class="gt">{c["name"]}</div><div class="gd">点击查看今日可转发政策</div></div><div class="ga">→</div></a>' for c in CUSTOMERS)
+    sok=' ok' if CRAWL_STATUS.get("ok") else ''
+    return f'''<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>政策简报 · 客户群总览</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
+<div class="wrap">
 {alert_block(gen)}
-<h1>政策简报 · 客户群总览</h1>
-<div class="sub">更新：{gen}（北京时间，每天约09:30自动刷新）｜点进对应客户群查看今日可转发消息<br><span style="color:#aaa">{source_note()}</span></div>
-{links}</body></html>'''
+<div class="brand"><div class="logo">策</div><div><div class="bt">政策简报</div><div class="bs">POLICY BRIEF · 客户群总览</div></div></div>
+<div class="hero"><div class="sheen"></div><h1>客户群总览</h1><p>每天约 09:30 自动刷新。点击对应客户群，查看今日已筛选、可转发的官方政策。</p></div>
+{tiles}
+<div class="foot">更新：{gen}（北京时间，每天约 09:30 自动刷新）<div class="src{sok}">{source_note()}</div>本服务汇集官方公开信息，仅供参考，请以政府官网原文为准</div>
+</div></body></html>'''
 
 def main():
     os.makedirs(DOCS, exist_ok=True)
