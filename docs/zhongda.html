@@ -12,6 +12,7 @@ body::after{width:42vw;height:42vw;right:-13vw;bottom:-14vw;opacity:.4;backgroun
 .bt{font-size:17px;font-weight:700;letter-spacing:.5px}.bs{font-size:11.5px;color:var(--txt3);letter-spacing:1px}.sp{flex:1}
 .back{font-size:13px;color:var(--txt);text-decoration:none;padding:7px 15px;border:1px solid var(--line);border-radius:999px;background:var(--glass);backdrop-filter:blur(12px);transition:.25s}
 .back:hover{border-color:var(--line2);background:var(--glass2);transform:translateY(-1px)}
+.rfs{cursor:pointer;font-family:inherit;color:#9fdcff;border-color:rgba(56,189,248,.35)}.rfs:hover{border-color:rgba(56,189,248,.6);background:rgba(56,189,248,.12)}
 .hero{position:relative;overflow:hidden;border-radius:22px;padding:28px 30px;margin-bottom:16px;background:linear-gradient(135deg,rgba(56,189,248,.10),rgba(184,29,44,.08));border:1px solid var(--line);backdrop-filter:blur(24px) saturate(140%);box-shadow:0 20px 50px rgba(0,0,0,.45),inset 0 2px 0 rgba(184,29,44,.5)}
 .hero h1{font-size:26px;font-weight:800;letter-spacing:.3px;margin-bottom:9px;background:linear-gradient(120deg,#fff,#c3cfe2);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .hero p{color:var(--txt2);font-size:13.5px;max-width:700px}
@@ -56,8 +57,8 @@ body::after{width:42vw;height:42vw;right:-13vw;bottom:-14vw;opacity:.4;backgroun
 .alert{display:none;background:linear-gradient(135deg,rgba(251,113,133,.18),rgba(244,63,94,.1));color:#fecdd3;border:1px solid rgba(251,113,133,.45);border-left:4px solid var(--red);border-radius:14px;padding:14px 16px;margin-bottom:16px;font-size:14px;font-weight:600;line-height:1.6;backdrop-filter:blur(14px)}
 @media(max-width:600px){.wrap{padding:18px 14px 40px}.hero{padding:22px}.hero h1{font-size:21px}.stat .n{font-size:22px}}</style></head><body>
 <div class="wrap">
-<div id="alert" class="alert" style="display:none"></div><script>(function(){var g=new Date("2026-06-25 10:33".replace(/-/g,"/"));var d=(Date.now()-g.getTime())/864e5,b=document.getElementById("alert");if(b&&b.style.display=="none"&&d>2){b.style.display="block";b.innerHTML="⚠️ 网站已约"+Math.floor(d)+"天未更新，每日自动抓取可能出问题了，请尽快处理（找 Claude 排查）。";}})();</script>
-<div class="brand"><div class="logo">策</div><div><div class="bt">政策简报</div><div class="bs">POLICY BRIEF · 每日精选</div></div><div class="sp"></div><a class="back" href="./index.html">← 全部客户群</a></div>
+<div id="alert" class="alert" style="display:none"></div><script>(function(){var g=new Date("2026-06-25 11:37".replace(/-/g,"/"));var d=(Date.now()-g.getTime())/864e5,b=document.getElementById("alert");if(b&&b.style.display=="none"&&d>2){b.style.display="block";b.innerHTML="⚠️ 网站已约"+Math.floor(d)+"天未更新，每日自动抓取可能出问题了，请尽快处理（找 Claude 排查）。";}})();</script>
+<div class="brand"><div class="logo">策</div><div><div class="bt">政策简报</div><div class="bs">POLICY BRIEF · 每日精选</div></div><div class="sp"></div><button class="back rfs" onclick="this.textContent='刷新中…';location.replace(location.pathname+'?t='+Date.now())">↻ 刷新最新</button><a class="back" href="./index.html" style="margin-left:8px">← 全部客户群</a></div>
 <div class="hero"><div class="sheen"></div><h1>南京市级重大科技专项申报</h1>
 <p>每日自动汇集南京市科技局官方政策，按相关性与申报截止智能排序。<b style="color:#6ee7b7">绿色「新」</b>为近7天发布、优先转发；灰色「已截止」仅存档参考。复制前请人工核对再转发。</p></div>
 <div class="stats"><div class="stat s1"><div class="n">1</div><div class="l">可申报</div></div>
@@ -80,7 +81,7 @@ body::after{width:42vw;height:42vw;right:-13vw;bottom:-14vw;opacity:.4;backgroun
 <div class="title">市科技局关于做好2026年度省前沿技术研发计划（现代农业）“揭榜挂帅”项目工作的通知</div><div class="meta">申报截止　2026-06-22</div>
 <div class="btns"><a class="btn" href="https://kjj.nanjing.gov.cn/njskxjswyh/202606/t20260615_5859641.html" target="_blank">查看原文</a><button class="btn" onclick="tg('c3')">标记已转发</button></div></article>
 <div class="legend"><span><span class="dot" style="background:var(--green)"></span><b>新</b> 近7天发布</span><span><span class="dot" style="background:var(--red)"></span><b>仅剩X天</b> 临近截止</span><span><span class="dot" style="background:var(--txt3)"></span><b>已截止</b> 仅存档不可申报</span></div>
-<div class="foot">更新：2026-06-25 10:33（北京时间）· 每天 09:30 自动刷新<div class="src ok">数据源：✅ 实时抓取成功（列表 20 条）· 2026-06-25 10:33</div>本服务汇集官方公开信息，仅供参考，请以政府官网原文为准</div>
+<div class="foot">更新：2026-06-25 11:37（北京时间）· 白天每小时自动检查最新<div class="src ok">数据源：✅ 实时抓取成功（列表 20 条）· 2026-06-25 11:37</div>本服务汇集官方公开信息，仅供参考，请以政府官网原文为准</div>
 </div>
 <script>function cp(t,id){navigator.clipboard.writeText(t).then(()=>{tg(id,1);alert('已复制，可粘贴到群里');});}
 function tg(id,d){var e=document.getElementById(id);if(d){e.classList.add('done');}else{e.classList.toggle('done');}localStorage.setItem(id+location.pathname,e.classList.contains('done')?'1':'');}

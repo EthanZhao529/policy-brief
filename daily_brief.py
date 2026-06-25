@@ -117,7 +117,7 @@ def merge_crawl():
         print(f"抓到「公示公告」列表 {len(fetched)} 条")
     except Exception as e:
         CRAWL_STATUS.update(ok=False,mode="cache",error=str(e)[:80])
-        print("列表抓取失败，沿用现有 items.json：", str(e)[:80]); _write_status(); return
+        print("列表抓取失败，沿用现有 items.json：", str(e)[:80]); return
     data=[]
     if os.path.exists(ITEMS):
         try: data=json.load(open(ITEMS,encoding="utf-8"))
@@ -128,7 +128,7 @@ def merge_crawl():
         data.append(it); have.add(it["link"]); added+=1
         print("  + 新增:", it["date"], it["title"][:30])
     if added: json.dump(data, open(ITEMS,"w",encoding="utf-8"), ensure_ascii=False, indent=1)
-    CRAWL_STATUS["added"]=added; _write_status()
+    CRAWL_STATUS["added"]=added
     print(f"本次新增 {added} 条，items.json 现 {len(data)} 条")
 
 def fetch_all():
@@ -167,6 +167,7 @@ body::after{width:42vw;height:42vw;right:-13vw;bottom:-14vw;opacity:.4;backgroun
 .bt{font-size:17px;font-weight:700;letter-spacing:.5px}.bs{font-size:11.5px;color:var(--txt3);letter-spacing:1px}.sp{flex:1}
 .back{font-size:13px;color:var(--txt);text-decoration:none;padding:7px 15px;border:1px solid var(--line);border-radius:999px;background:var(--glass);backdrop-filter:blur(12px);transition:.25s}
 .back:hover{border-color:var(--line2);background:var(--glass2);transform:translateY(-1px)}
+.rfs{cursor:pointer;font-family:inherit;color:#9fdcff;border-color:rgba(56,189,248,.35)}.rfs:hover{border-color:rgba(56,189,248,.6);background:rgba(56,189,248,.12)}
 .hero{position:relative;overflow:hidden;border-radius:22px;padding:28px 30px;margin-bottom:16px;background:linear-gradient(135deg,rgba(56,189,248,.10),rgba(184,29,44,.08));border:1px solid var(--line);backdrop-filter:blur(24px) saturate(140%);box-shadow:0 20px 50px rgba(0,0,0,.45),inset 0 2px 0 rgba(184,29,44,.5)}
 .hero h1{font-size:26px;font-weight:800;letter-spacing:.3px;margin-bottom:9px;background:linear-gradient(120deg,#fff,#c3cfe2);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 .hero p{color:var(--txt2);font-size:13.5px;max-width:700px}
@@ -256,7 +257,7 @@ def page_html(cust, rows, gen):
 <title>{cust["name"]}·政策简报</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
 <div class="wrap">
 {alert_block(gen)}
-<div class="brand"><div class="logo">策</div><div><div class="bt">政策简报</div><div class="bs">POLICY BRIEF · 每日精选</div></div><div class="sp"></div><a class="back" href="./index.html">← 全部客户群</a></div>
+<div class="brand"><div class="logo">策</div><div><div class="bt">政策简报</div><div class="bs">POLICY BRIEF · 每日精选</div></div><div class="sp"></div><button class="back rfs" onclick="this.textContent='刷新中…';location.replace(location.pathname+'?t='+Date.now())">↻ 刷新最新</button><a class="back" href="./index.html" style="margin-left:8px">← 全部客户群</a></div>
 <div class="hero"><div class="sheen"></div><h1>{cust["name"]}</h1>
 <p>每日自动汇集南京市科技局官方政策，按相关性与申报截止智能排序。<b style="color:#6ee7b7">绿色「新」</b>为近{NEW_DAYS}天发布、优先转发；灰色「已截止」仅存档参考。复制前请人工核对再转发。</p></div>
 <div class="stats"><div class="stat s1"><div class="n">{n_open}</div><div class="l">可申报</div></div>
@@ -264,7 +265,7 @@ def page_html(cust, rows, gen):
 <div class="stat s3"><div class="n">{total}</div><div class="l">在库通知</div></div></div>
 {body}
 <div class="legend"><span><span class="dot" style="background:var(--green)"></span><b>新</b> 近{NEW_DAYS}天发布</span><span><span class="dot" style="background:var(--red)"></span><b>仅剩X天</b> 临近截止</span><span><span class="dot" style="background:var(--txt3)"></span><b>已截止</b> 仅存档不可申报</span></div>
-<div class="foot">更新：{gen}（北京时间）· 每天 09:30 自动刷新<div class="src{sok}">{source_note()}</div>本服务汇集官方公开信息，仅供参考，请以政府官网原文为准</div>
+<div class="foot">更新：{gen}（北京时间）· 白天每小时自动检查最新<div class="src{sok}">{source_note()}</div>本服务汇集官方公开信息，仅供参考，请以政府官网原文为准</div>
 </div>
 <script>function cp(t,id){{navigator.clipboard.writeText(t).then(()=>{{tg(id,1);alert('已复制，可粘贴到群里');}});}}
 function tg(id,d){{var e=document.getElementById(id);if(d){{e.classList.add('done');}}else{{e.classList.toggle('done');}}localStorage.setItem(id+location.pathname,e.classList.contains('done')?'1':'');}}
@@ -277,16 +278,18 @@ def index_html(items_count, gen):
 <title>政策简报 · 客户群总览</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
 <div class="wrap">
 {alert_block(gen)}
-<div class="brand"><div class="logo">策</div><div><div class="bt">政策简报</div><div class="bs">POLICY BRIEF · 客户群总览</div></div></div>
-<div class="hero"><div class="sheen"></div><h1>客户群总览</h1><p>每天约 09:30 自动刷新。点击对应客户群，查看今日已筛选、可转发的官方政策。</p></div>
+<div class="brand"><div class="logo">策</div><div><div class="bt">政策简报</div><div class="bs">POLICY BRIEF · 客户群总览</div></div><div class="sp"></div><button class="back rfs" onclick="this.textContent='刷新中…';location.replace(location.pathname+'?t='+Date.now())">↻ 刷新最新</button></div>
+<div class="hero"><div class="sheen"></div><h1>客户群总览</h1><p>白天每小时自动检查最新。点击对应客户群，查看今日已筛选、可转发的官方政策。</p></div>
 {tiles}
-<div class="foot">更新：{gen}（北京时间，每天约 09:30 自动刷新）<div class="src{sok}">{source_note()}</div>本服务汇集官方公开信息，仅供参考，请以政府官网原文为准</div>
+<div class="foot">更新：{gen}（北京时间，白天每小时自动检查最新）<div class="src{sok}">{source_note()}</div>本服务汇集官方公开信息，仅供参考，请以政府官网原文为准</div>
 </div></body></html>'''
 
 def main():
+    import hashlib
     os.makedirs(DOCS, exist_ok=True)
     merge_crawl()                              # 先抓「公示公告」并入 items.json（失败自动跳过、不影响出网页）
     items=fetch_all(); gen=NOW_BJ.strftime("%Y-%m-%d %H:%M")
+    pages=[]; sig=[NOW_BJ.strftime("%Y-%m-%d"), "ok="+str(CRAWL_STATUS.get("ok"))]  # 内容指纹（不含分钟级时间戳）
     for c in CUSTOMERS:
         scored=[]
         for it in items:
@@ -299,11 +302,22 @@ def main():
         scored.sort(key=lambda x: x.get("date",""), reverse=True)
         scored.sort(key=lambda x: (1 if x["_dl_state"]=="expired" else 0, -x["score"]))
         for i,r in enumerate(scored): r["id"]=i
-        open(os.path.join(DOCS,f'{c["key"]}.html'),"w",encoding="utf-8").write(page_html(c,scored,gen))
+        pages.append((c,scored))
+        for r in scored: sig.append(f'{c["key"]}|{r["link"]}|{r["_dl_state"]}')
         n_open=sum(1 for r in scored if r["_dl_state"]!="expired")
         print(f'  {c["name"]}: {len(scored)} 条（其中可申报 {n_open} 条）')
+    # 无实质变化（同一天、同一批通知、同一截止状态、抓取状态不变）→ 跳过重写，避免每小时跑出无谓提交
+    digest=hashlib.sha1("\n".join(sig).encode("utf-8")).hexdigest()
+    sigf=os.path.join(ROOT,"content.sig")
+    old=open(sigf,encoding="utf-8").read().strip() if os.path.exists(sigf) else ""
+    if digest==old:
+        print("内容无实质变化，跳过重写（仓库保持干净）"); return
+    for c,scored in pages:
+        open(os.path.join(DOCS,f'{c["key"]}.html'),"w",encoding="utf-8").write(page_html(c,scored,gen))
     open(os.path.join(DOCS,"index.html"),"w",encoding="utf-8").write(index_html(len(items),gen))
-    print("网页已写入 docs/")
+    _write_status()
+    open(sigf,"w",encoding="utf-8").write(digest)
+    print("内容有更新 → 已重写 docs/ 并刷新状态")
 
 if __name__=="__main__":
     main()

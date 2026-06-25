@@ -1,8 +1,8 @@
 name: daily-brief
-# 每天北京时间 09:30 自动跑（GitHub 用 UTC，01:30 UTC = 09:30 北京）
+# 北京白天每小时跑一次（UTC 0–12 点 = 北京 8–20 点），抓到新通知就立即更新、否则不提交。
 on:
   schedule:
-    - cron: '30 1 * * *'
+    - cron: '0 0-12 * * *'
   workflow_dispatch: {}        # 也可在 Actions 页面手动点 Run 立即跑
 
 permissions:
