@@ -18,7 +18,7 @@ STATE     = os.path.join(ROOT, "state_seen.json")
 ITEMS     = os.path.join(ROOT, "items.json")   # 你添加的真实通知（add_news.py 写入）
 RECENT_DAYS = 60
 NEW_DAYS    = 7    # 发布≤7天标「新」，优先转发
-SITE_VERSION = "ui-2026.06.25c"   # 渲染版本：改卡片/转发/样式时改这串，强制重生成（纳入 content.sig）
+SITE_VERSION = "ui-2026.06.25d"   # 渲染版本：改卡片/转发/样式时改这串，强制重生成（纳入 content.sig）
 NOW_BJ = datetime.utcnow() + timedelta(hours=8)   # GitHub 跑在 UTC，换成北京时间
 # 网站图标：内联 SVG（蓝底白「策」），无需额外文件
 FAVICON=("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'"
@@ -35,6 +35,10 @@ CUSTOMERS = [
      "include":["重大科技专项","重大专项","科技重大专项","前沿技术","行业技术","卡脖子",
                 "关键核心技术","攻关","揭榜","揭榜挂帅","科技专项","申报指南","指南建议"],
      "boost":["市级重大科技专项","南京市重大","南京市级重大","申报","指南","征集","立项","公示","资助","截止"]},
+    # 泰州印染机械（纺织行业垂类情报）：内容为人工精挑、按 group 绑定的常驻条目，含监管/规划/趋势/资金。
+    {"key":"taizhou", "name":"泰州印染机械 · 纺织行业专属",
+     "include":[],   # 纯人工精挑：只收 group==taizhou 的条目，不让南京源爬取内容按关键词串进来（避免错配外地申报入口）
+     "boost":[]},
     # {"key":"gainian","name":"概念验证中心客户群","include":["概念验证"],"boost":["申报","认定","截止"]},
     # {"key":"chengguo","name":"产学研成果转化客户群","include":["技术转移","成果转化","技术合同"],"boost":["奖补","申报"]},
 ]
@@ -147,10 +151,13 @@ def fetch_all():
     return list(uniq.values())
 
 def recent(it):
-    if not it["date"]: return True
+    if it.get("evergreen"): return True          # 长期有效条目（监管/规划/常驻政策）不受时效限制
+    if not it.get("date"): return True
     try: return (NOW_BJ - datetime.strptime(it["date"],"%Y-%m-%d")).days <= RECENT_DAYS
     except: return True
 def relevance(it,c):
+    g=it.get("group")
+    if g: return 5 if g==c["key"] else -1        # 显式绑定到某客户群（人工精挑内容，不靠关键词）
     if any(x in it["title"] for x in EXCLUDE): return -1
     if not any(k in it["title"] for k in c["include"]): return -1
     return 1 + sum(1 for b in c["boost"] if b in it["title"])
@@ -196,6 +203,7 @@ body::after{width:42vw;height:42vw;right:-13vw;bottom:-14vw;opacity:.4;backgroun
 .tag.new{background:rgba(52,211,153,.15);border-color:rgba(52,211,153,.42);color:#6ee7b7;font-weight:700}
 .tag.urg{background:rgba(184,29,44,.22);border-color:rgba(184,29,44,.55);color:#f1a0a8;font-weight:700}
 .tag.exp{background:rgba(255,255,255,.04);color:var(--txt3)}
+.tag.ever{background:rgba(56,189,248,.13);border-color:rgba(56,189,248,.4);color:#9fdcff;font-weight:600}
 .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}
 .btn{font-size:13px;padding:8px 16px;border-radius:10px;border:1px solid var(--line);cursor:pointer;background:var(--glass);color:var(--txt);text-decoration:none;transition:.25s;backdrop-filter:blur(8px)}
 .btn:hover{border-color:var(--line2);background:var(--glass2);transform:translateY(-1px)}
@@ -233,36 +241,45 @@ def page_html(cust, rows, gen):
     total=len(rows); n_exp=sum(1 for r in rows if r.get("_dl_state")=="expired"); n_open=total-n_exp
     cards=[]
     for r in rows:
+        eg=bool(r.get("evergreen"))
         st=r.get("_dl_state","unknown"); dl=r.get("_dl_str",""); days=r.get("_dl_days")
-        rel="、".join(k for k in cust["include"] if k in r["title"])      # 命中的相关领域/专题（来自标题，真实）
+        rel="、".join(r.get("tags") or [k for k in cust["include"] if k in r["title"]])    # 命中的相关领域/专题（来自标题，真实）
         summary=(r.get("summary") or "").strip()                          # 一句话简介（items.json 可选字段）
-        urgent=(st=="open" and days is not None and days<=14)
+        urgent=(not eg and st=="open" and days is not None and days<=14)
         is_new=False
-        try: is_new = bool(r["date"]) and st!="expired" and (NOW_BJ.date()-datetime.strptime(r["date"],"%Y-%m-%d").date()).days<=NEW_DAYS
-        except Exception: is_new=False
-        tags=('<span class="tag new">新</span>' if is_new else '')+f'<span class="tag">{r["source"]}</span>'
-        if st=="expired":
+        if not eg:
+            try: is_new = bool(r.get("date")) and st!="expired" and (NOW_BJ.date()-datetime.strptime(r["date"],"%Y-%m-%d").date()).days<=NEW_DAYS
+            except Exception: is_new=False
+        tags=('<span class="tag new">新</span>' if is_new else '')+f'<span class="tag">{r.get("source","")}</span>'
+        if eg:
+            tags+='<span class="tag ever">长期有效</span>'
+        elif st=="expired":
             tags+='<span class="tag exp">已截止</span>'
         elif urgent:
             tags+=f'<span class="tag urg">仅剩{days}天</span>'
         elif st=="unknown" and ("申报" in r["title"] or "截止" in r["title"]):
             tags+='<span class="tag">申报中</span>'
-        cls="card expired" if st=="expired" else "card"
+        cls="card expired" if (not eg and st=="expired") else "card"
+        topdate=(r.get("period") or "长期有效") if eg else f'发布 {r.get("date") or "—"}'
         desc=f'<div class="desc">{_html.escape(summary)}</div>' if summary else ''
-        metab=([f'相关：{_html.escape(rel)}'] if rel else [])+([f'申报截止 {dl}'] if dl else [])
+        metab=([f'相关：{_html.escape(rel)}'] if rel else [])+([f'申报截止 {dl}'] if (dl and not eg) else [])
         meta=f'<div class="meta">{"　".join(metab)}</div>' if metab else ''
         # 转发文案：标题＋相关领域＋简介＋发布/截止＋原文 —— 客户一眼判断要不要点进去
-        parts=[f'【政策提醒】{r["title"]}']
+        parts=[f'【{r.get("kind","政策提醒")}】{r["title"]}']
         if rel: parts.append(f'🔖 相关：{rel}')
         if summary: parts.append(f'📄 简介：{summary}')
-        dline=f'🗓 发布 {r["date"] or "见原文"}'
-        if dl: dline+=f'　申报截止 {dl}'+(f'（仅剩{days}天）' if urgent else '')
-        parts.append(dline); parts.append(f'🔗 原文：{r["link"]}')
+        if eg:
+            if r.get("period"): parts.append(f'🗓 {r["period"]}')
+        else:
+            dline=f'🗓 发布 {r.get("date") or "见原文"}'
+            if dl: dline+=f'　申报截止 {dl}'+(f'（仅剩{days}天）' if urgent else '')
+            parts.append(dline)
+        parts.append(f'🔗 原文：{r["link"]}')
         fj=_html.escape("\n".join(parts)).replace("\n","\\n").replace("'","\\'")
         # 已截止的不给「复制转发」按钮，避免误转发到客户群
-        cp_btn='' if st=="expired" else f'<button class="btn cp" onclick="cp(\'{fj}\',\'{r["id"]}\')">复制转发</button>'
+        cp_btn='' if (not eg and st=="expired") else f'<button class="btn cp" onclick="cp(\'{fj}\',\'{r["id"]}\')">复制转发</button>'
         cards.append(f'''<article class="{cls}" id="{r["id"]}">
-<div class="top"><div class="badges">{tags}</div><span class="date">发布 {r["date"] or "—"}</span></div>
+<div class="top"><div class="badges">{tags}</div><span class="date">{topdate}</span></div>
 <div class="title">{_html.escape(r["title"])}</div>{desc}{meta}
 <div class="btns">{cp_btn}<a class="btn" href="{r["link"]}" target="_blank">查看原文</a><button class="btn mk" id="m{r["id"]}" onclick="tg('{r["id"]}')">标记已转发</button></div></article>''')
     body="\n".join(cards) if cards else '<div class="empty">今日暂无符合条件的新消息</div>'
