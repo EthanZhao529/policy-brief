@@ -189,6 +189,7 @@ body::after{width:42vw;height:42vw;right:-13vw;bottom:-14vw;opacity:.4;backgroun
 .date{font-size:12px;color:var(--txt3);white-space:nowrap;padding-top:2px}
 .title{font-size:16.5px;font-weight:700;line-height:1.5;color:var(--txt)}
 .meta{font-size:12.5px;color:var(--txt2);margin-top:8px}
+.desc{font-size:13px;color:#b9c4d6;margin-top:8px;line-height:1.55}
 .tag{font-size:11.5px;padding:2px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--txt2)}
 .tag.new{background:rgba(52,211,153,.15);border-color:rgba(52,211,153,.42);color:#6ee7b7;font-weight:700}
 .tag.urg{background:rgba(184,29,44,.22);border-color:rgba(184,29,44,.55);color:#f1a0a8;font-weight:700}
@@ -231,26 +232,37 @@ def page_html(cust, rows, gen):
     cards=[]
     for r in rows:
         st=r.get("_dl_state","unknown"); dl=r.get("_dl_str",""); days=r.get("_dl_days")
+        rel="、".join(k for k in cust["include"] if k in r["title"])      # 命中的相关领域/专题（来自标题，真实）
+        summary=(r.get("summary") or "").strip()                          # 一句话简介（items.json 可选字段）
+        urgent=(st=="open" and days is not None and days<=14)
         is_new=False
         try: is_new = bool(r["date"]) and st!="expired" and (NOW_BJ.date()-datetime.strptime(r["date"],"%Y-%m-%d").date()).days<=NEW_DAYS
         except Exception: is_new=False
         tags=('<span class="tag new">新</span>' if is_new else '')+f'<span class="tag">{r["source"]}</span>'
         if st=="expired":
             tags+='<span class="tag exp">已截止</span>'
-        elif st=="open" and days is not None and days<=14:
+        elif urgent:
             tags+=f'<span class="tag urg">仅剩{days}天</span>'
         elif st=="unknown" and ("申报" in r["title"] or "截止" in r["title"]):
             tags+='<span class="tag">申报中</span>'
         cls="card expired" if st=="expired" else "card"
-        meta=f'<div class="meta">申报截止　{dl}</div>' if dl else ''
-        fwd=f'【政策提醒】{r["title"]}\n发布：{r["date"] or "见原文"}'+(f'\n申报截止：{dl}' if dl else '')+f'\n原文：{r["link"]}'
-        fj=_html.escape(fwd).replace("\n","\\n").replace("'","\\'")
+        desc=f'<div class="desc">{_html.escape(summary)}</div>' if summary else ''
+        metab=([f'相关：{_html.escape(rel)}'] if rel else [])+([f'申报截止 {dl}'] if dl else [])
+        meta=f'<div class="meta">{"　".join(metab)}</div>' if metab else ''
+        # 转发文案：标题＋相关领域＋简介＋发布/截止＋原文 —— 客户一眼判断要不要点进去
+        parts=[f'【政策提醒】{r["title"]}']
+        if rel: parts.append(f'🔖 相关：{rel}')
+        if summary: parts.append(f'📄 简介：{summary}')
+        dline=f'🗓 发布 {r["date"] or "见原文"}'
+        if dl: dline+=f'　申报截止 {dl}'+(f'（仅剩{days}天）' if urgent else '')
+        parts.append(dline); parts.append(f'🔗 原文：{r["link"]}')
+        fj=_html.escape("\n".join(parts)).replace("\n","\\n").replace("'","\\'")
         # 已截止的不给「复制转发」按钮，避免误转发到客户群
-        cp_btn='' if st=="expired" else f'<button class="btn cp" onclick="cp(\'{fj}\',\'c{r["id"]}\')">复制转发</button>'
-        cards.append(f'''<article class="{cls}" id="c{r["id"]}">
+        cp_btn='' if st=="expired" else f'<button class="btn cp" onclick="cp(\'{fj}\',\'{r["id"]}\')">复制转发</button>'
+        cards.append(f'''<article class="{cls}" id="{r["id"]}">
 <div class="top"><div class="badges">{tags}</div><span class="date">发布 {r["date"] or "—"}</span></div>
-<div class="title">{_html.escape(r["title"])}</div>{meta}
-<div class="btns">{cp_btn}<a class="btn" href="{r["link"]}" target="_blank">查看原文</a><button class="btn" onclick="tg('c{r["id"]}')">标记已转发</button></div></article>''')
+<div class="title">{_html.escape(r["title"])}</div>{desc}{meta}
+<div class="btns">{cp_btn}<a class="btn" href="{r["link"]}" target="_blank">查看原文</a><button class="btn" onclick="tg('{r["id"]}')">标记已转发</button></div></article>''')
     body="\n".join(cards) if cards else '<div class="empty">今日暂无符合条件的新消息</div>'
     sok=' ok' if CRAWL_STATUS.get("ok") else ''
     return f'''<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -301,9 +313,10 @@ def main():
         # 排序：可申报的在前、已截止沉底；同组内相关度高的在前，再按发布日期新→旧
         scored.sort(key=lambda x: x.get("date",""), reverse=True)
         scored.sort(key=lambda x: (1 if x["_dl_state"]=="expired" else 0, -x["score"]))
-        for i,r in enumerate(scored): r["id"]=i
+        # 稳定 id＝按通知链接哈希（而非位置），避免改版/排序变化后「已转发」标记串到别的卡
+        for r in scored: r["id"]="n"+hashlib.md5(r["link"].encode("utf-8")).hexdigest()[:8]
         pages.append((c,scored))
-        for r in scored: sig.append(f'{c["key"]}|{r["link"]}|{r["_dl_state"]}')
+        for r in scored: sig.append(f'{c["key"]}|{r["link"]}|{r["_dl_state"]}|{r.get("summary","")}')
         n_open=sum(1 for r in scored if r["_dl_state"]!="expired")
         print(f'  {c["name"]}: {len(scored)} 条（其中可申报 {n_open} 条）')
     # 无实质变化（同一天、同一批通知、同一截止状态、抓取状态不变）→ 跳过重写，避免每小时跑出无谓提交
