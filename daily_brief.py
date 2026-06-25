@@ -18,7 +18,7 @@ STATE     = os.path.join(ROOT, "state_seen.json")
 ITEMS     = os.path.join(ROOT, "items.json")   # 你添加的真实通知（add_news.py 写入）
 RECENT_DAYS = 60
 NEW_DAYS    = 7    # 发布≤7天标「新」，优先转发
-SITE_VERSION = "ui-2026.06.25e"   # 渲染版本：改卡片/转发/样式时改这串，强制重生成（纳入 content.sig）
+SITE_VERSION = "ui-2026.06.25f"   # 渲染版本：改卡片/转发/样式时改这串，强制重生成（纳入 content.sig）
 NOW_BJ = datetime.utcnow() + timedelta(hours=8)   # GitHub 跑在 UTC，换成北京时间
 # 网站图标：内联 SVG（蓝底白「策」），无需额外文件
 FAVICON=("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'"
@@ -213,6 +213,11 @@ body::after{width:42vw;height:42vw;right:-13vw;bottom:-14vw;opacity:.4;backgroun
 .tag.urg{background:rgba(184,29,44,.22);border-color:rgba(184,29,44,.55);color:#f1a0a8;font-weight:700}
 .tag.exp{background:rgba(255,255,255,.04);color:var(--txt3)}
 .tag.ever{background:rgba(56,189,248,.13);border-color:rgba(56,189,248,.4);color:#9fdcff;font-weight:600}
+.tag.lvl{font-weight:700}.lvl.h{background:rgba(52,211,153,.16);border-color:rgba(52,211,153,.45);color:#6ee7b7}.lvl.m{background:rgba(56,189,248,.12);border-color:rgba(56,189,248,.36);color:#9fdcff}.lvl.l{color:var(--txt3)}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.chip{cursor:pointer;font-family:inherit;font-size:12.5px;padding:6px 14px;border-radius:999px;border:1px solid var(--line);background:var(--glass);color:var(--txt2);transition:.2s}
+.chip:hover{border-color:var(--line2);color:var(--txt)}
+.chip.on{background:linear-gradient(135deg,rgba(56,189,248,.22),rgba(99,102,241,.18));border-color:rgba(56,189,248,.5);color:#fff;font-weight:600}
 .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}
 .btn{font-size:13px;padding:8px 16px;border-radius:10px;border:1px solid var(--line);cursor:pointer;background:var(--glass);color:var(--txt);text-decoration:none;transition:.25s;backdrop-filter:blur(8px)}
 .btn:hover{border-color:var(--line2);background:var(--glass2);transform:translateY(-1px)}
@@ -263,7 +268,9 @@ def page_html(cust, rows, gen):
         if not eg:
             try: is_new = bool(r.get("date")) and st!="expired" and (NOW_BJ.date()-datetime.strptime(r["date"],"%Y-%m-%d").date()).days<=NEW_DAYS
             except Exception: is_new=False
-        tags=('<span class="tag new">新</span>' if is_new else '')+f'<span class="tag">{r.get("source","")}</span>'
+        lvl=r.get("level"); lvlcls={"高":"h","中":"m","低":"l"}.get(lvl,"m")
+        lvltag=f'<span class="tag lvl {lvlcls}">{lvl}相关</span>' if lvl else ''
+        tags=lvltag+('<span class="tag new">新</span>' if is_new else '')+f'<span class="tag">{r.get("source","")}</span>'
         if eg:
             tags+='<span class="tag ever">长期有效</span>'
         elif st=="expired":
@@ -291,11 +298,22 @@ def page_html(cust, rows, gen):
         fj=_html.escape("\n".join(parts)).replace("\n","\\n").replace("'","\\'")
         # 已截止的不给「复制转发」按钮，避免误转发到客户群
         cp_btn='' if (not eg and st=="expired") else f'<button class="btn cp" onclick="cp(\'{fj}\',\'{r["id"]}\')">复制转发</button>'
-        cards.append(f'''<article class="{cls}" id="{r["id"]}">
+        cards.append(f'''<article class="{cls}" id="{r["id"]}" data-cat="{r.get("category","")}">
 <div class="top"><div class="badges">{tags}</div><span class="date">{topdate}</span></div>
 <div class="title">{_html.escape(r["title"])}</div>{desc}{meta}
 <div class="btns">{cp_btn}<a class="btn" href="{r["link"]}" target="_blank">查看原文</a><button class="btn mk" id="m{r["id"]}" onclick="tg('{r["id"]}')">标记已转发</button></div></article>''')
     body="\n".join(cards) if cards else '<div class="empty">今日暂无符合条件的新消息</div>'
+    cats=[]
+    for r in rows:
+        cc=r.get("category")
+        if cc and cc not in cats: cats.append(cc)
+    if cats:
+        chips=[f'<button class="chip on" onclick="flt(this,\'all\')">全部 {len(rows)}</button>']
+        for cc in cats:
+            chips.append(f'<button class="chip" onclick="flt(this,\'{cc}\')">{cc} {sum(1 for r in rows if r.get("category")==cc)}</button>')
+        filters=f'<div class="filters">{"".join(chips)}</div>'
+    else:
+        filters=''
     sok=' ok' if CRAWL_STATUS.get("ok") else ''
     return f'''<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{cust["name"]}·政策简报</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
@@ -307,6 +325,7 @@ def page_html(cust, rows, gen):
 <div class="stats"><div class="stat s1"><div class="n">{n_open}</div><div class="l">可申报</div></div>
 <div class="stat s2"><div class="n">{n_exp}</div><div class="l">已截止 · 存档</div></div>
 <div class="stat s3"><div class="n">{total}</div><div class="l">在库通知</div></div></div>
+{filters}
 {body}
 <div class="legend"><span><span class="dot" style="background:var(--green)"></span><b>新</b> 近{NEW_DAYS}天发布</span><span><span class="dot" style="background:var(--red)"></span><b>仅剩X天</b> 临近截止</span><span><span class="dot" style="background:var(--txt3)"></span><b>已截止</b> 仅存档不可申报</span></div>
 <div class="foot">更新：{gen}（北京时间）· 白天每小时自动检查最新<div class="src{sok}">{source_note()}</div>本服务汇集官方公开信息，仅供参考，请以政府官网原文为准</div>
@@ -314,6 +333,7 @@ def page_html(cust, rows, gen):
 <script>function mark(id,on){{var b=document.getElementById('m'+id),k=id+location.pathname;if(on){{localStorage.setItem(k,'1');}}else{{localStorage.removeItem(k);}}if(b){{b.classList.toggle('done',on);b.textContent=on?'✓ 已转发':'标记已转发';}}}}
 function tg(id){{mark(id,localStorage.getItem(id+location.pathname)!='1');}}
 function cp(t,id){{navigator.clipboard.writeText(t).then(()=>{{mark(id,true);alert('已复制，可粘贴到群里');}});}}
+function flt(b,c){{document.querySelectorAll('.chip').forEach(function(x){{x.classList.remove('on');}});b.classList.add('on');document.querySelectorAll('.card').forEach(function(k){{k.style.display=(c=='all'||k.getAttribute('data-cat')==c)?'':'none';}});}}
 window.onload=function(){{document.querySelectorAll('.mk').forEach(function(b){{var id=b.id.slice(1);if(localStorage.getItem(id+location.pathname)=='1')mark(id,true);}});}};</script></body></html>'''
 
 def index_html(items_count, gen):
