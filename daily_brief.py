@@ -18,6 +18,7 @@ STATE     = os.path.join(ROOT, "state_seen.json")
 ITEMS     = os.path.join(ROOT, "items.json")   # 你添加的真实通知（add_news.py 写入）
 RECENT_DAYS = 60
 NEW_DAYS    = 7    # 发布≤7天标「新」，优先转发
+SITE_VERSION = "ui-2026.06.25c"   # 渲染版本：改卡片/转发/样式时改这串，强制重生成（纳入 content.sig）
 NOW_BJ = datetime.utcnow() + timedelta(hours=8)   # GitHub 跑在 UTC，换成北京时间
 # 网站图标：内联 SVG（蓝底白「策」），无需额外文件
 FAVICON=("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'"
@@ -183,7 +184,8 @@ body::after{width:42vw;height:42vw;right:-13vw;bottom:-14vw;opacity:.4;backgroun
 .card::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.06) 50%,transparent 58%);transform:translateX(-130%);transition:transform .8s;pointer-events:none}
 .card:hover{transform:translateY(-4px);border-color:var(--line2);box-shadow:0 18px 44px rgba(0,0,0,.5),0 0 0 1px rgba(56,189,248,.18)}
 .card:hover::after{transform:translateX(130%)}
-.card.expired{opacity:.62}.card.expired::before{background:var(--txt3)}.card.done{opacity:.4}
+.card.expired{opacity:.62}.card.expired::before{background:var(--txt3)}
+.mk.done{background:rgba(52,211,153,.18);border-color:rgba(52,211,153,.55);color:#6ee7b7;font-weight:700}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:9px}
 .badges{display:flex;flex-wrap:wrap;gap:6px}
 .date{font-size:12px;color:var(--txt3);white-space:nowrap;padding-top:2px}
@@ -262,7 +264,7 @@ def page_html(cust, rows, gen):
         cards.append(f'''<article class="{cls}" id="{r["id"]}">
 <div class="top"><div class="badges">{tags}</div><span class="date">发布 {r["date"] or "—"}</span></div>
 <div class="title">{_html.escape(r["title"])}</div>{desc}{meta}
-<div class="btns">{cp_btn}<a class="btn" href="{r["link"]}" target="_blank">查看原文</a><button class="btn" onclick="tg('{r["id"]}')">标记已转发</button></div></article>''')
+<div class="btns">{cp_btn}<a class="btn" href="{r["link"]}" target="_blank">查看原文</a><button class="btn mk" id="m{r["id"]}" onclick="tg('{r["id"]}')">标记已转发</button></div></article>''')
     body="\n".join(cards) if cards else '<div class="empty">今日暂无符合条件的新消息</div>'
     sok=' ok' if CRAWL_STATUS.get("ok") else ''
     return f'''<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -279,9 +281,10 @@ def page_html(cust, rows, gen):
 <div class="legend"><span><span class="dot" style="background:var(--green)"></span><b>新</b> 近{NEW_DAYS}天发布</span><span><span class="dot" style="background:var(--red)"></span><b>仅剩X天</b> 临近截止</span><span><span class="dot" style="background:var(--txt3)"></span><b>已截止</b> 仅存档不可申报</span></div>
 <div class="foot">更新：{gen}（北京时间）· 白天每小时自动检查最新<div class="src{sok}">{source_note()}</div>本服务汇集官方公开信息，仅供参考，请以政府官网原文为准</div>
 </div>
-<script>function cp(t,id){{navigator.clipboard.writeText(t).then(()=>{{tg(id,1);alert('已复制，可粘贴到群里');}});}}
-function tg(id,d){{var e=document.getElementById(id);if(d){{e.classList.add('done');}}else{{e.classList.toggle('done');}}localStorage.setItem(id+location.pathname,e.classList.contains('done')?'1':'');}}
-window.onload=function(){{document.querySelectorAll('.card').forEach(e=>{{if(localStorage.getItem(e.id+location.pathname)=='1')e.classList.add('done');}});}};</script></body></html>'''
+<script>function mark(id,on){{var b=document.getElementById('m'+id),k=id+location.pathname;if(on){{localStorage.setItem(k,'1');}}else{{localStorage.removeItem(k);}}if(b){{b.classList.toggle('done',on);b.textContent=on?'✓ 已转发':'标记已转发';}}}}
+function tg(id){{mark(id,localStorage.getItem(id+location.pathname)!='1');}}
+function cp(t,id){{navigator.clipboard.writeText(t).then(()=>{{mark(id,true);alert('已复制，可粘贴到群里');}});}}
+window.onload=function(){{document.querySelectorAll('.mk').forEach(function(b){{var id=b.id.slice(1);if(localStorage.getItem(id+location.pathname)=='1')mark(id,true);}});}};</script></body></html>'''
 
 def index_html(items_count, gen):
     tiles="\n".join(f'<a class="grp" href="./{c["key"]}.html"><div class="gi">策</div><div><div class="gt">{c["name"]}</div><div class="gd">点击查看今日可转发政策</div></div><div class="ga">→</div></a>' for c in CUSTOMERS)
@@ -301,7 +304,7 @@ def main():
     os.makedirs(DOCS, exist_ok=True)
     merge_crawl()                              # 先抓「公示公告」并入 items.json（失败自动跳过、不影响出网页）
     items=fetch_all(); gen=NOW_BJ.strftime("%Y-%m-%d %H:%M")
-    pages=[]; sig=[NOW_BJ.strftime("%Y-%m-%d"), "ok="+str(CRAWL_STATUS.get("ok"))]  # 内容指纹（不含分钟级时间戳）
+    pages=[]; sig=[NOW_BJ.strftime("%Y-%m-%d"), "v="+SITE_VERSION, "ok="+str(CRAWL_STATUS.get("ok"))]  # 内容指纹（含渲染版本，不含分钟级时间戳）
     for c in CUSTOMERS:
         scored=[]
         for it in items:
