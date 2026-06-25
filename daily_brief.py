@@ -105,9 +105,15 @@ def merge_crawl():
     抓不到（如海外服务器访问不了政府站）就跳过、沿用现有 items.json，绝不白屏。
     刻意不自动猜测申报截止日（截止日在正文、易猜错）——新抓条目先无 deadline，
     核心通知的截止日由人工核实后补，符合『发付费客户前人工核对』原则。"""
-    CRAWL_STATUS["at"]=NOW_BJ.strftime("%Y-%m-%d %H:%M")
+    now=NOW_BJ.strftime("%Y-%m-%d %H:%M"); prev={}
+    sp=os.path.join(ROOT,"crawl_status.json")
+    if os.path.exists(sp):
+        try: prev=json.load(open(sp,encoding="utf-8"))
+        except Exception: prev={}
+    CRAWL_STATUS["at"]=now
+    CRAWL_STATUS["last_ok_at"]=prev.get("last_ok_at","")   # 失败时保留上次成功时间，用于提示已停更几天
     try:
-        fetched=crawl_list(); CRAWL_STATUS.update(ok=True,mode="live",count=len(fetched))
+        fetched=crawl_list(); CRAWL_STATUS.update(ok=True,mode="live",count=len(fetched),last_ok_at=now)
         print(f"抓到「公示公告」列表 {len(fetched)} 条")
     except Exception as e:
         CRAWL_STATUS.update(ok=False,mode="cache",error=str(e)[:80])
@@ -156,7 +162,22 @@ h1{font-size:20px;margin:0 0 4px}.sub{color:#888;font-size:13px;margin-bottom:18
 .tag{display:inline-block;background:#eef4ff;color:#2b6cff;border-radius:4px;padding:1px 7px;font-size:12px;margin-right:6px}.urg{background:#fff0f0;color:#e03131}.exp{background:#f1f3f5;color:#868e96}.new{background:#e6f7ed;color:#0f9d58;font-weight:600}
 .btns{margin-top:10px}button,a.lk{font-size:13px;border:1px solid #ddd;background:#fff;border-radius:6px;padding:6px 12px;margin-right:8px;cursor:pointer;text-decoration:none;color:#333}
 button.cp{background:#2b6cff;color:#fff;border-color:#2b6cff}.empty{color:#888;text-align:center;padding:40px}
-.grp{display:block;background:#fff;border:1px solid #eee;border-radius:10px;padding:16px;margin:12px 0;text-decoration:none;color:#222;font-size:16px;font-weight:600}"""
+.grp{display:block;background:#fff;border:1px solid #eee;border-radius:10px;padding:16px;margin:12px 0;text-decoration:none;color:#222;font-size:16px;font-weight:600}
+.alert{display:none;background:#fff5f5;color:#c92a2a;border:1px solid #ffc9c9;border-left:5px solid #e03131;border-radius:8px;padding:12px 14px;margin:0 0 16px;font-size:14px;font-weight:600;line-height:1.6}"""
+
+def alert_block(gen):
+    """页面顶部警示条：① 抓取失败(服务器已知)→直接红条，附上次成功时间；
+    ② 内置JS兜底——即便连云端任务都没跑(页面好几天没更新)，浏览器也能算出来自动报警。
+    健康时整条隐藏，不打扰。"""
+    failed = not CRAWL_STATUS.get("ok", True)
+    last = CRAWL_STATUS.get("last_ok_at") or CRAWL_STATUS.get("at") or "未知"
+    msg = (f'⚠️ 自动抓取失败！当前显示的是缓存数据，可能不是最新政策。上次成功更新：{last}。请尽快处理（找 Claude 排查）。') if failed else ''
+    disp = 'block' if failed else 'none'
+    return (f'<div id="alert" class="alert" style="display:{disp}">{msg}</div>'
+            f'<script>(function(){{var g=new Date("{gen}".replace(/-/g,"/"));'
+            f'var d=(Date.now()-g.getTime())/864e5,b=document.getElementById("alert");'
+            f'if(b&&b.style.display=="none"&&d>2){{b.style.display="block";'
+            f'b.innerHTML="⚠️ 网站已约"+Math.floor(d)+"天未更新，每日自动抓取可能出问题了，请尽快处理（找 Claude 排查）。";}}}})();</script>')
 
 def page_html(cust, rows, gen):
     cards=[]
@@ -185,6 +206,7 @@ def page_html(cust, rows, gen):
     body="\n".join(cards) if cards else '<div class="empty">今日无符合条件的新消息</div>'
     return f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{cust["name"]}·政策简报</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
+{alert_block(gen)}
 <a class="back" href="./index.html">← 返回全部客户群</a>
 <h1>{cust["name"]}·今日政策简报</h1>
 <div class="sub">更新：{gen}（北京时间）｜绿色「新」＝近{NEW_DAYS}天新发布、优先转发；灰色「已截止」仅存档参考｜复制后请人工核对再转发<br><span style="color:#aaa">{source_note()}</span></div>
@@ -197,6 +219,7 @@ def index_html(items_count, gen):
     links="\n".join(f'<a class="grp" href="./{c["key"]}.html">{c["name"]} →</a>' for c in CUSTOMERS)
     return f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>政策简报</title><link rel="icon" href="{FAVICON}"><style>{CSS}</style></head><body>
+{alert_block(gen)}
 <h1>政策简报 · 客户群总览</h1>
 <div class="sub">更新：{gen}（北京时间，每天约09:30自动刷新）｜点进对应客户群查看今日可转发消息<br><span style="color:#aaa">{source_note()}</span></div>
 {links}</body></html>'''
