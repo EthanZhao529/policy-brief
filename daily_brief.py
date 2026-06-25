@@ -18,7 +18,7 @@ STATE     = os.path.join(ROOT, "state_seen.json")
 ITEMS     = os.path.join(ROOT, "items.json")   # 你添加的真实通知（add_news.py 写入）
 RECENT_DAYS = 60
 NEW_DAYS    = 7    # 发布≤7天标「新」，优先转发
-SITE_VERSION = "ui-2026.06.25d"   # 渲染版本：改卡片/转发/样式时改这串，强制重生成（纳入 content.sig）
+SITE_VERSION = "ui-2026.06.25e"   # 渲染版本：改卡片/转发/样式时改这串，强制重生成（纳入 content.sig）
 NOW_BJ = datetime.utcnow() + timedelta(hours=8)   # GitHub 跑在 UTC，换成北京时间
 # 网站图标：内联 SVG（蓝底白「策」），无需额外文件
 FAVICON=("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'"
@@ -81,12 +81,21 @@ def fmt_md(dl):
     return f"{m.group(1)}/{m.group(2)}" if m else dl
 
 def crawl_list():
-    """抓「公示公告」静态列表页，返回 [{title,link,date,source}]；失败抛异常，由 merge_crawl 兜底。"""
-    import ssl, urllib.request
+    """抓「公示公告」静态列表页，返回 [{title,link,date,source}]；3次重试容忍海外网络抖动，全失败才抛异常。"""
+    import ssl, urllib.request, time
     ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE
-    html=urllib.request.urlopen(urllib.request.Request(LIST_URL,headers=UA),timeout=25,context=ctx).read().decode("utf-8","ignore")
-    rows=re.findall(r'<a href="(https://[^"]+/t\d{8}_\d+\.html)"[^>]*title="([^"]+)"[^>]*>.*?</a></span>\s*<span class="d2"[^>]*>(\d{4}-\d{2}-\d{2})</span>', html, re.S)
-    return [{"title":re.sub(r"\s+","",t),"link":l,"date":d,"source":"南京市科技局"} for l,t,d in rows]
+    pat=r'<a href="(https://[^"]+/t\d{8}_\d+\.html)"[^>]*title="([^"]+)"[^>]*>.*?</a></span>\s*<span class="d2"[^>]*>(\d{4}-\d{2}-\d{2})</span>'
+    last=None
+    for attempt in range(3):                       # 海外服务器偶发超时，重试3次再放弃
+        try:
+            html=urllib.request.urlopen(urllib.request.Request(LIST_URL,headers=UA),timeout=40,context=ctx).read().decode("utf-8","ignore")
+            rows=re.findall(pat, html, re.S)
+            if rows: return [{"title":re.sub(r"\s+","",t),"link":l,"date":d,"source":"南京市科技局"} for l,t,d in rows]
+            last=Exception("页面无列表（可能结构变化）")
+        except Exception as e:
+            last=e
+        time.sleep(3)
+    raise last
 
 def any_relevant(title):
     """命中任一客户群关键词、且不在 EXCLUDE → 值得收录（最终显示给哪个群由 relevance 决定）。"""
@@ -228,9 +237,13 @@ def alert_block(gen):
     ② 内置JS兜底——即便连云端任务都没跑(页面好几天没更新)，浏览器也能算出来自动报警。
     健康时整条隐藏，不打扰。"""
     failed = not CRAWL_STATUS.get("ok", True)
-    last = CRAWL_STATUS.get("last_ok_at") or CRAWL_STATUS.get("at") or "未知"
-    msg = (f'⚠️ 自动抓取失败！当前显示的是缓存数据，可能不是最新政策。上次成功更新：{last}。请尽快处理（找 Claude 排查）。') if failed else ''
-    disp = 'block' if failed else 'none'
+    last = CRAWL_STATUS.get("last_ok_at") or ""
+    try: stale_h=(NOW_BJ - datetime.strptime(last,"%Y-%m-%d %H:%M")).total_seconds()/3600 if last else 999
+    except Exception: stale_h=999
+    # 只有"抓取失败 且 数据确实旧(上次成功>30小时前)"才弹红条——单次海外网络超时不惊动客户
+    alarm = failed and stale_h>30
+    msg = (f'⚠️ 自动抓取已较久未成功，数据可能不是最新（上次成功更新：{last or "未知"}）。请尽快处理（找 Claude 排查）。') if alarm else ''
+    disp = 'block' if alarm else 'none'
     return (f'<div id="alert" class="alert" style="display:{disp}">{msg}</div>'
             f'<script>(function(){{var g=new Date("{gen}".replace(/-/g,"/"));'
             f'var d=(Date.now()-g.getTime())/864e5,b=document.getElementById("alert");'
