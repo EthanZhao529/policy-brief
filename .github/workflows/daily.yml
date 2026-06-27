@@ -1,8 +1,9 @@
 name: daily-brief
-# 每天北京时间 09:30 自动跑（UTC 01:30 = 北京 09:30），抓到新通知就更新、否则不提交。
+# 机械抓取层：每天北京时间 08:30 自动跑（UTC 00:30 = 北京 08:30）先把南京重大专项列表抓进 items.json，
+# 之后由本机「policy-brief-daily-intel」AI任务在北京09:00做亲读校准+研究。抓到新通知就更新、否则不提交。
 on:
   schedule:
-    - cron: '30 1 * * *'
+    - cron: '30 0 * * *'
   workflow_dispatch: {}        # 也可在 Actions 页面手动点 Run 立即跑
 
 permissions:
