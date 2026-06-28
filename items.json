@@ -310,5 +310,101 @@
   "summary": "研发费用在据实扣除基础上再按100%税前加计扣除，免认定即享，规范研发费用辅助账即可。软件/AI开发的研发投入均适用。",
   "checked": "2026-06-28",
   "checked_note": "亲读核验"
+ },
+ {
+  "title": "技术转让·技术开发及相关技术咨询服务 免征增值税",
+  "link": "https://www.chinatax.gov.cn/chinatax/n810356/n3010387/c5233341/content.html",
+  "source": "国家税务总局",
+  "kind": "税收优惠",
+  "group": "zhongda",
+  "evergreen": true,
+  "category": "AI软件·政策",
+  "level": "高",
+  "period": "现行（财税〔2016〕36号·普惠性）",
+  "tags": [
+   "技术开发",
+   "技术转让",
+   "免征增值税",
+   "技术合同认定登记"
+  ],
+  "summary": "纳税人提供技术转让、技术开发及与之相关的技术咨询、技术服务，免征增值税（国家税务总局现行指引，依据财税〔2016〕36号“转让技术/研发服务”范围）。驰策的软件/AI技术开发、技术服务收入正属此列，且小规模纳税人也可享；前提是签订技术合同并经省级科技部门技术合同认定登记。（具体以主管税务机关口径为准）",
+  "checked": "2026-06-28",
+  "checked_note": "亲读核验·税务总局原文"
+ },
+ {
+  "title": "软件产品增值税即征即退（实际税负超3%即退）",
+  "link": "https://www.chinatax.gov.cn/chinatax/n810356/n3010387/c5235447/content.html",
+  "source": "国家税务总局",
+  "kind": "税收优惠",
+  "group": "zhongda",
+  "evergreen": true,
+  "category": "AI软件·政策",
+  "level": "中",
+  "period": "现行（财税〔2011〕100号）",
+  "tags": [
+   "软件产品",
+   "增值税即征即退",
+   "软件产品登记证书"
+  ],
+  "summary": "增值税一般纳税人销售其自行开发生产的软件产品，按现行税率征收增值税后，对增值税实际税负超过3%的部分即征即退（财税〔2011〕100号，税务总局现行指引）。需取得《软件产品登记证书》且为一般纳税人——驰策现为小微/小规模纳税人短期未必适用，可作规模做大后的方向。（具体以主管税务机关口径为准）",
+  "checked": "2026-06-28",
+  "checked_note": "亲读核验·税务总局原文"
+ },
+ {
+  "title": "创新型中小企业评价（专精特新前置·门槛低）",
+  "link": "https://www.smejs.cn/sso.aspx?state=%2fusergrowup_estimate1.aspx#zhongda",
+  "source": "江苏省工信厅",
+  "kind": "资质培育",
+  "group": "zhongda",
+  "evergreen": true,
+  "category": "资质·资金",
+  "level": "高",
+  "period": "常年在线评价",
+  "tags": [
+   "创新型中小企业",
+   "专精特新前置",
+   "门槛低"
+  ],
+  "summary": "江苏优质中小企业培育第一层级：登录江苏省中小企业公共服务平台（smejs.cn）做“创新型中小企业自测”、达标即入库，是申报专精特新的必备前置。门槛低，最适合2023新创的驰策尽早办。",
+  "checked": "2026-06-28",
+  "checked_note": "亲读核验·smejs现行"
+ },
+ {
+  "title": "高新技术企业认定（所得税减按15%）",
+  "link": "http://www.innocom.gov.cn/#zhongda",
+  "source": "国家",
+  "kind": "资金政策",
+  "group": "zhongda",
+  "evergreen": true,
+  "category": "资质·资金",
+  "level": "中",
+  "period": "常年 · 建议提前1–2年培育",
+  "tags": [
+   "高企",
+   "所得税15%",
+   "AI/软件"
+  ],
+  "summary": "通过认定后企业所得税减按15%（一般25%）。需知识产权、研发费用占比、科技人员占比、高新收入占比等达标。驰策做AI/软件研发、技术领域契合高新；属新创小微，建议提前布局知识产权与研发费用辅助账。",
+  "checked": "2026-06-28",
+  "checked_note": "亲读核验·innocom现行(http)"
+ },
+ {
+  "title": "江苏省专精特新中小企业认定",
+  "link": "https://www.smejs.cn/sso.aspx?state=%2fusergrowup_estimate2.aspx",
+  "source": "江苏省工信厅",
+  "kind": "资金政策",
+  "group": "zhongda",
+  "evergreen": true,
+  "category": "资质·资金",
+  "level": "中",
+  "period": "每年分批申报",
+  "tags": [
+   "专精特新",
+   "梯度培育",
+   "可叠加奖励"
+  ],
+  "summary": "省级中小企业梯度培育核心抓手，可叠加各级配套奖励。前置须为“创新型中小企业”（有效期内）且在省培育库；分批申报、有截止窗口，须盯当年批次。对驰策属中长期目标，建议先把创新型中小办下来。",
+  "checked": "2026-06-28",
+  "checked_note": "亲读核验·smejs现行"
  }
 ]
